@@ -27,3 +27,15 @@ def test_log_service_clear_removes_rotated_files(tmp_path: Path) -> None:
     service.clear()
 
     assert not any((tmp_path / "logs").glob("iterduca.log*"))
+
+
+def test_log_service_tail_returns_recent_lines(tmp_path: Path) -> None:
+    service = LogService(tmp_path / "logs")
+    for index in range(5):
+        service.append(f"line-{index}")
+
+    lines = service.tail(2)
+
+    assert len(lines) == 2
+    assert "line-3" in lines[0]
+    assert "line-4" in lines[1]
