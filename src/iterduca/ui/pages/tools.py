@@ -1,12 +1,24 @@
 from __future__ import annotations
 
+import json
+
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class ToolsPage(QWidget):
     flush_dns_requested = pyqtSignal()
     flush_fakeip_requested = pyqtSignal()
+    dns_query_requested = pyqtSignal(str, str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -19,8 +31,8 @@ class ToolsPage(QWidget):
         layout.addWidget(title)
 
         hint = QLabel(
-            "Maintenance actions operate on the currently running Mihomo core. "
-            "Cache flushes do not modify your source profile."
+            "Maintenance and diagnostics operate on the currently running Mihomo core. "
+            "They do not modify your source profile."
         )
         hint.setObjectName("Muted")
         hint.setWordWrap(True)
@@ -32,4 +44,33 @@ class ToolsPage(QWidget):
         fakeip.clicked.connect(self.flush_fakeip_requested.emit)
         layout.addWidget(dns)
         layout.addWidget(fakeip)
-        layout.addStretch(1)
+
+        query_row = QHBoxLayout()
+        self.domain = QLineEdit()
+        self.domain.setPlaceholderText("example.com")
+        self.record_type = QComboBox()
+        self.record_type.addItems(["A", "AAAA", "CNAME", "MX", "TXT"])
+        query = QPushButton("DNS Query")
+        query.clicked.connect(self._query)
+        query_row.addWidget(self.domain, 1)
+        query_row.addWidget(self.record_type)
+        query_row.addWidget(query)
+        layout.addLayout(query_row)
+
+        self.dns_result = QPlainTextEdit()
+        self.dns_result.setReadOnly(True)
+        self.dns_result.setPlaceholderText("DNS response will appear here.")
+        layout.addWidget(self.dns_result, 1)
+
+    def set_dns_result(self, payload: object) -> None:
+        if isinstance(payload, str):
+            self.dns_result.setPlainText(payload)
+            return
+        self.dns_result.setPlainText(
+            json.dumps(payload, ensure_ascii=False, indent=2)
+        )
+
+    def _query(self) -> None:
+        name = self.domain.text().strip()
+        if name:
+            self.dns_query_requested.emit(name, self.record_type.currentText())
