@@ -21,6 +21,12 @@ class AppSettings:
     controller_port: int = DEFAULT_CONTROLLER_PORT
     mode: str = DEFAULT_MODE
     system_proxy_enabled: bool = False
+    tun_enabled: bool = False
+    tun_stack: str = "mips"
+    tun_auto_route: bool = True
+    tun_auto_detect_interface: bool = True
+    tun_dns_hijack: bool = True
+    tun_strict_route: bool = False
     minimize_to_tray: bool = True
 
     @classmethod
