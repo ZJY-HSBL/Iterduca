@@ -13,6 +13,15 @@ from PyQt6.QtWidgets import (
 )
 
 
+def _format_bytes(value: int) -> str:
+    size = float(max(0, value))
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return "0 B"
+
+
 def _format_rate(value: int) -> str:
     size = float(max(0, value))
     for unit in ("B/s", "KB/s", "MB/s", "GB/s"):
@@ -51,12 +60,16 @@ class OverviewPage(QWidget):
         traffic_layout = QGridLayout(traffic)
         traffic_layout.addWidget(QLabel("Upload"), 0, 0)
         traffic_layout.addWidget(QLabel("Download"), 0, 1)
+        traffic_layout.addWidget(QLabel("Core memory"), 0, 2)
         self.upload = QLabel("0 B/s")
         self.download = QLabel("0 B/s")
+        self.memory = QLabel("0 B")
         self.upload.setObjectName("Metric")
         self.download.setObjectName("Metric")
+        self.memory.setObjectName("Metric")
         traffic_layout.addWidget(self.upload, 1, 0)
         traffic_layout.addWidget(self.download, 1, 1)
+        traffic_layout.addWidget(self.memory, 1, 2)
         layout.addWidget(traffic)
 
         mode_row = QHBoxLayout()
@@ -93,3 +106,6 @@ class OverviewPage(QWidget):
     def set_traffic(self, up: int, down: int) -> None:
         self.upload.setText(_format_rate(up))
         self.download.setText(_format_rate(down))
+
+    def set_memory(self, value: int) -> None:
+        self.memory.setText(_format_bytes(value))
