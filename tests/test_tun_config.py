@@ -16,6 +16,8 @@ def test_default_tun_config_uses_safe_windows_defaults() -> None:
     assert tun["auto-detect-interface"] is True
     assert tun["dns-hijack"] == ["any:53", "tcp://any:53"]
     assert tun["strict-route"] is False
+    assert "192.168.0.0/16" in tun["route-exclude-address"]
+    assert "fc00::/7" in tun["route-exclude-address"]
     assert "auto-redirect" not in tun
 
 
@@ -55,3 +57,9 @@ def test_iterduca_tun_values_override_profile_and_user_overrides(tmp_path: Path)
     assert data["tun"]["mtu"] == 1400
     assert data["tun"]["auto-route"] is True
     assert data["tun"]["strict-route"] is False
+
+
+def test_private_network_bypass_can_be_disabled() -> None:
+    settings = AppSettings(tun_bypass_private_networks=False)
+    tun = settings.tun_config()
+    assert "route-exclude-address" not in tun
