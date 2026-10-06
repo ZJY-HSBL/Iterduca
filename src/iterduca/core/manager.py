@@ -19,6 +19,28 @@ class CoreManager:
     def running(self) -> bool:
         return self._process is not None and self._process.poll() is None
 
+    def validate(self, executable: Path, config: Path, home: Path, timeout: float = 10.0) -> None:
+        executable = executable.expanduser().resolve()
+        if not executable.is_file():
+            raise FileNotFoundError(executable)
+        if not config.is_file():
+            raise FileNotFoundError(config)
+        home.mkdir(parents=True, exist_ok=True)
+
+        command = [str(executable), "-t", "-d", str(home), "-f", str(config)]
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            creationflags=self._creation_flags(),
+        )
+        if result.returncode != 0:
+            output = (result.stdout + "\n" + result.stderr).strip()
+            raise RuntimeError(output or "Mihomo configuration validation failed")
+
     def start(self, executable: Path, config: Path, home: Path) -> None:
         if self.running:
             raise RuntimeError("Mihomo core is already running")
