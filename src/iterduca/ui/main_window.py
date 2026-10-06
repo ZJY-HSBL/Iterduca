@@ -10,6 +10,7 @@ from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -23,16 +24,19 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from iterduca.constants import APP_VERSION
 from iterduca.core.api import MihomoApi
 from iterduca.core.manager import CoreManager
 from iterduca.core.runtime_config import RuntimeConfigBuilder
 from iterduca.core.traffic import TrafficMonitor
 from iterduca.paths import AppPaths
 from iterduca.services.core_locator import CoreLocator
+from iterduca.services.log_service import LogService
 from iterduca.services.override_service import OverrideService
 from iterduca.services.profile_service import ProfileService
 from iterduca.services.settings_service import SettingsService
 from iterduca.services.subscription_service import SubscriptionService
+from iterduca.services.update_service import UpdateInfo, UpdateService
 from iterduca.system.privilege import is_elevated, relaunch_elevated
 from iterduca.system.proxy import SystemProxy
 from iterduca.system.startup import StartupService
@@ -63,6 +67,8 @@ class UiBridge(QObject):
     proxy_provider_error = pyqtSignal(str)
     dns_result = pyqtSignal(object)
     dns_error = pyqtSignal(str)
+    update_result = pyqtSignal(object)
+    update_error = pyqtSignal(str)
 
 
 class MainWindow(QMainWindow):
@@ -75,6 +81,8 @@ class MainWindow(QMainWindow):
             paths.profiles, paths.subscriptions_file
         )
         self.override_service = OverrideService(paths.override_file)
+        self.log_service = LogService(paths.logs)
+        self.update_service = UpdateService("ZJY-HSBL/Iterduca", APP_VERSION)
         self.settings = self.settings_service.load()
         self.core_locator = CoreLocator()
         if not self.settings.core_path:
@@ -213,7 +221,10 @@ class MainWindow(QMainWindow):
         self.tools.flush_dns_requested.connect(self._flush_dns_cache)
         self.tools.flush_fakeip_requested.connect(self._flush_fakeip_cache)
         self.tools.dns_query_requested.connect(self._dns_query)
-        self.bridge.log.connect(self.logs.append)
+        self.tools.check_update_requested.connect(self._check_for_updates)
+        self.logs.export_requested.connect(self._export_logs)
+        self.logs.clear_requested.connect(self._clear_logs)
+        self.bridge.log.connect(self._log)
         self.bridge.traffic.connect(self.overview.set_traffic)
         self.bridge.latency.connect(self.proxies.set_delay)
         self.bridge.subscription_ready.connect(self._on_subscription_ready)
@@ -227,6 +238,62 @@ class MainWindow(QMainWindow):
         self.bridge.dns_error.connect(
             lambda message: self.tools.set_dns_result(f"DNS query failed: {message}")
         )
+        self.bridge.update_result.connect(self._on_update_result)
+        self.bridge.update_error.connect(self._on_update_error)
+
+    def _log(self, message: str) -> None:
+        self.logs.append(message)
+        self.log_service.append(message)
+
+    def _export_logs(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export logs",
+            "Iterduca.log",
+            "Log files (*.log);;Text files (*.txt);;All files (*)",
+        )
+        if not path:
+            return
+        try:
+            self.log_service.export(Path(path))
+            QMessageBox.information(self, "Logs", f"Logs exported to:\n{path}")
+        except OSError as exc:
+            QMessageBox.warning(self, "Export logs", str(exc))
+
+    def _clear_logs(self) -> None:
+        try:
+            self.log_service.clear()
+        except OSError as exc:
+            QMessageBox.warning(self, "Clear logs", str(exc))
+
+    def _check_for_updates(self) -> None:
+        self.tools.set_update_status("Checking GitHub Releases…")
+
+        def worker() -> None:
+            try:
+                self.bridge.update_result.emit(self.update_service.check())
+            except Exception as exc:
+                self.bridge.update_error.emit(str(exc))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_update_result(self, result: object) -> None:
+        if not isinstance(result, UpdateInfo):
+            return
+        if result.available:
+            message = f"Update available: v{result.latest_version}"
+            if result.release_url:
+                message += f" — {result.release_url}"
+            self.tools.set_update_status(message)
+            return
+        self.tools.set_update_status(
+            f"No newer release found. Current v{result.current_version}; "
+            f"latest published v{result.latest_version}."
+        )
+
+    def _on_update_error(self, message: str) -> None:
+        self.tools.set_update_status(f"Update check failed: {message}")
+        self._log(f"[update] {message}")
 
     def _build_health_timer(self) -> None:
         self._connection_refresh_tick = 0
@@ -244,7 +311,7 @@ class MainWindow(QMainWindow):
             or self._system_proxy_active
         )
         if has_runtime_state and not self.core.running:
-            self.logs.append("[core] Mihomo exited unexpectedly; runtime state restored.")
+            self._log("[core] Mihomo exited unexpectedly; runtime state restored.")
             self.stop_core()
             return
 
@@ -415,7 +482,7 @@ class MainWindow(QMainWindow):
             )
             self.overview.set_running(True, detail)
         except Exception as exc:
-            self.logs.append(f"[mode] {exc}")
+            self._log(f"[mode] {exc}")
 
     def _refresh_proxies(self) -> None:
         if not self.api:
@@ -424,7 +491,7 @@ class MainWindow(QMainWindow):
         try:
             self.proxies.set_groups(self.api.proxy_groups())
         except Exception as exc:
-            self.logs.append(f"[api] {exc}")
+            self._log(f"[api] {exc}")
 
     def _select_proxy(self, group: str, proxy: str) -> None:
         if not self.api:
@@ -489,7 +556,7 @@ class MainWindow(QMainWindow):
         try:
             self.proxy_providers.set_providers(self.api.proxy_providers())
         except Exception as exc:
-            self.logs.append(f"[proxy-providers] {exc}")
+            self._log(f"[proxy-providers] {exc}")
 
     def _update_proxy_provider(self, name: str) -> None:
         self._run_proxy_provider_actions([name], "update")
@@ -533,19 +600,19 @@ class MainWindow(QMainWindow):
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_proxy_provider_updated(self, name: str) -> None:
-        self.logs.append(f"[proxy-providers] Updated/checked {name}")
+        self._log(f"[proxy-providers] Updated/checked {name}")
         self._refresh_proxy_providers()
         self._refresh_proxies()
 
     def _on_proxy_provider_error(self, message: str) -> None:
-        self.logs.append(f"[proxy-providers] {message}")
+        self._log(f"[proxy-providers] {message}")
 
     def _flush_dns_cache(self) -> None:
         if not self.api:
             return
         try:
             self.api.flush_dns_cache()
-            self.logs.append("[tools] DNS cache flushed.")
+            self._log("[tools] DNS cache flushed.")
         except Exception as exc:
             QMessageBox.warning(self, "DNS cache", str(exc))
 
@@ -554,7 +621,7 @@ class MainWindow(QMainWindow):
             return
         try:
             self.api.flush_fakeip_cache()
-            self.logs.append("[tools] Fake-IP cache flushed.")
+            self._log("[tools] Fake-IP cache flushed.")
         except Exception as exc:
             QMessageBox.warning(self, "Fake-IP cache", str(exc))
 
@@ -584,7 +651,7 @@ class MainWindow(QMainWindow):
         try:
             self.connections.set_connections(self.api.connections())
         except Exception as exc:
-            self.logs.append(f"[connections] {exc}")
+            self._log(f"[connections] {exc}")
 
     def _close_connection(self, connection_id: str) -> None:
         if not self.api:
@@ -611,7 +678,7 @@ class MainWindow(QMainWindow):
         try:
             self.rules.set_rules(self.api.rules())
         except Exception as exc:
-            self.logs.append(f"[rules] {exc}")
+            self._log(f"[rules] {exc}")
 
     def _toggle_rule(self, index: int, disabled: bool) -> None:
         if not self.api:
@@ -620,7 +687,7 @@ class MainWindow(QMainWindow):
             self.api.set_rule_disabled(index, disabled)
             self._refresh_rules()
             state = "disabled" if disabled else "enabled"
-            self.logs.append(f"[rules] Rule {index} {state} for this core session.")
+            self._log(f"[rules] Rule {index} {state} for this core session.")
         except Exception as exc:
             QMessageBox.warning(self, "Rule update failed", str(exc))
 
@@ -631,7 +698,7 @@ class MainWindow(QMainWindow):
         try:
             self.rule_providers.set_providers(self.api.rule_providers())
         except Exception as exc:
-            self.logs.append(f"[rule-providers] {exc}")
+            self._log(f"[rule-providers] {exc}")
 
     def _update_rule_provider(self, name: str) -> None:
         self._run_rule_provider_updates([name])
@@ -669,11 +736,11 @@ class MainWindow(QMainWindow):
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_rule_provider_updated(self, name: str) -> None:
-        self.logs.append(f"[rule-providers] Updated {name}")
+        self._log(f"[rule-providers] Updated {name}")
         self._refresh_rule_providers()
 
     def _on_rule_provider_error(self, message: str) -> None:
-        self.logs.append(f"[rule-providers] {message}")
+        self._log(f"[rule-providers] {message}")
 
     def _refresh_memory(self) -> None:
         if not self.api or self._memory_request_inflight:
@@ -767,7 +834,7 @@ class MainWindow(QMainWindow):
             self.settings.active_profile = profile_name
             self.settings_service.save(self.settings)
         self._refresh_profiles()
-        self.logs.append(f"[subscription] Updated {profile_name}")
+        self._log(f"[subscription] Updated {profile_name}")
 
     def _on_subscription_error(self, message: str) -> None:
         QMessageBox.warning(self, "Subscription failed", message)
@@ -787,13 +854,13 @@ class MainWindow(QMainWindow):
             self.overrides.set_text(self.override_service.load_text())
         except Exception as exc:
             self.overrides.set_text("# Invalid override file\n")
-            self.logs.append(f"[overrides] {exc}")
+            self._log(f"[overrides] {exc}")
 
     def _save_overrides(self, text: str) -> None:
         try:
             self.override_service.save_text(text)
             self._load_overrides()
-            self.logs.append("[overrides] Saved. Restart the core to apply changes.")
+            self._log("[overrides] Saved. Restart the core to apply changes.")
         except Exception as exc:
             QMessageBox.warning(self, "Invalid overrides", str(exc))
 
@@ -843,7 +910,7 @@ class MainWindow(QMainWindow):
         self._refresh_tun_status()
 
         if self.core.running and was_enabled != self.settings.tun_enabled:
-            self.logs.append("[tun] TUN mode change will apply after core restart.")
+            self._log("[tun] TUN mode change will apply after core restart.")
         if self.settings.tun_enabled and not is_elevated():
             QMessageBox.information(
                 self,
@@ -875,7 +942,7 @@ class MainWindow(QMainWindow):
         self.settings.tun_enabled = False
         self.settings_service.save(self.settings)
         self._refresh_tun_status()
-        self.logs.append(
+        self._log(
             "[tun] TUN disabled. Iterduca returned to standard proxy mode."
         )
 
