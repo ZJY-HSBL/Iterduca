@@ -546,6 +546,9 @@ class MainWindow(QMainWindow):
         )
         self.settings.tun_dns_hijack = bool(values["tun_dns_hijack"])
         self.settings.tun_strict_route = bool(values["tun_strict_route"])
+        self.settings.tun_bypass_private_networks = bool(
+            values["tun_bypass_private_networks"]
+        )
         self.settings_service.save(self.settings)
         self._refresh_tun_status()
 
