@@ -184,7 +184,7 @@ class MainWindow(QMainWindow):
             side.addWidget(button)
         self.nav_buttons[0].setChecked(True)
         side.addStretch(1)
-        version = QLabel("v0.9.0")
+        version = QLabel(f"v{APP_VERSION}")
         version.setObjectName("Muted")
         side.addWidget(version)
 
