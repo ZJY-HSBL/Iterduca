@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
+
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -54,7 +57,18 @@ class RulesPage(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(self.table, 1)
+        self.table.itemSelectionChanged.connect(self._show_details)
+        layout.addWidget(self.table, 3)
+
+        detail_label = QLabel("Rule details")
+        detail_label.setObjectName("Muted")
+        layout.addWidget(detail_label)
+
+        self.details = QPlainTextEdit()
+        self.details.setReadOnly(True)
+        self.details.setMaximumBlockCount(300)
+        self.details.setPlaceholderText("Select a rule to inspect the complete controller payload.")
+        layout.addWidget(self.details, 2)
 
     def set_rules(self, rules: list[dict]) -> None:
         self._rules = rules
@@ -64,6 +78,7 @@ class RulesPage(QWidget):
         query = self.search.text().strip().lower()
         self.table.setRowCount(0)
         self._visible_rules = []
+        self.details.clear()
 
         for item in self._rules:
             extra = item.get("extra", {})
@@ -97,3 +112,12 @@ class RulesPage(QWidget):
         extra = extra if isinstance(extra, dict) else {}
         disabled = bool(extra.get("disabled", False))
         self.toggle_requested.emit(index, not disabled)
+
+    def _show_details(self) -> None:
+        row = self.table.currentRow()
+        if not 0 <= row < len(self._visible_rules):
+            self.details.clear()
+            return
+        self.details.setPlainText(
+            json.dumps(self._visible_rules[row], ensure_ascii=False, indent=2)
+        )
