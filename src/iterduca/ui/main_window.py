@@ -34,6 +34,7 @@ from iterduca.services.settings_service import SettingsService
 from iterduca.services.subscription_service import SubscriptionService
 from iterduca.system.privilege import is_elevated, relaunch_elevated
 from iterduca.system.proxy import SystemProxy
+from iterduca.system.startup import StartupService
 from iterduca.ui.pages.connections import ConnectionsPage
 from iterduca.ui.pages.logs import LogsPage
 from iterduca.ui.pages.overrides import OverridesPage
@@ -64,6 +65,9 @@ class MainWindow(QMainWindow):
         )
         self.override_service = OverrideService(paths.override_file)
         self.settings = self.settings_service.load()
+        self.startup_service = StartupService()
+        if self.startup_service.supported:
+            self.settings.startup_enabled = self.startup_service.is_enabled()
         self.runtime_builder = RuntimeConfigBuilder(paths.runtime)
         self.bridge = UiBridge()
         self.core = CoreManager(self.bridge.log.emit)
@@ -597,6 +601,13 @@ class MainWindow(QMainWindow):
         self.settings.controller_port = int(values["controller_port"])
         self.settings.mode = str(values["mode"])
         requested_proxy = bool(values["system_proxy_enabled"])
+        requested_startup = bool(values["startup_enabled"])
+        if requested_startup != self.settings.startup_enabled:
+            try:
+                self.startup_service.set_enabled(requested_startup)
+                self.settings.startup_enabled = requested_startup
+            except OSError as exc:
+                QMessageBox.warning(self, "Startup", str(exc))
         if self.core.running and self.settings.tun_enabled:
             if self._system_proxy_active:
                 self.system_proxy.disable()
