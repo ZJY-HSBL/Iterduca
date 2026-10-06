@@ -82,7 +82,7 @@ class ToolsPage(QWidget):
         data_hint = QLabel(
             "Backup archives can contain proxy credentials from Profiles. "
             "Diagnostics archives intentionally exclude Profiles, subscription URLs, "
-            "runtime configuration, and controller secrets."
+            "runtime configuration, controller secrets, and raw log contents."
         )
         data_hint.setObjectName("Muted")
         data_hint.setWordWrap(True)
