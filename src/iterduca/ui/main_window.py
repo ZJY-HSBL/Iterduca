@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import httpx
@@ -143,10 +144,14 @@ class MainWindow(QMainWindow):
         self.profiles.active_profile_changed.connect(self._set_active_profile)
         self.profiles.subscription_add_requested.connect(self._add_subscription)
         self.profiles.subscription_update_requested.connect(self._update_subscription)
+        self.profiles.subscription_update_all_requested.connect(
+            self._update_all_subscriptions
+        )
         self.settings_page.save_requested.connect(self._save_settings)
         self.proxies.refresh_requested.connect(self._refresh_proxies)
         self.proxies.proxy_selected.connect(self._select_proxy)
         self.proxies.latency_requested.connect(self._test_latency)
+        self.proxies.latency_group_requested.connect(self._test_latency_group)
         self.connections.refresh_requested.connect(self._refresh_connections)
         self.connections.close_selected_requested.connect(self._close_connection)
         self.connections.close_all_requested.connect(self._close_all_connections)
@@ -160,6 +165,7 @@ class MainWindow(QMainWindow):
         self.bridge.subscription_error.connect(self._on_subscription_error)
 
     def _build_health_timer(self) -> None:
+        self._connection_refresh_tick = 0
         self.health_timer = QTimer(self)
         self.health_timer.setInterval(1000)
         self.health_timer.timeout.connect(self._poll_core_state)
@@ -174,6 +180,15 @@ class MainWindow(QMainWindow):
         if has_runtime_state and not self.core.running:
             self.logs.append("[core] Mihomo exited unexpectedly; runtime state restored.")
             self.stop_core()
+            return
+
+        if self.api and self.stack.currentWidget() is self.connections:
+            self._connection_refresh_tick += 1
+            if self._connection_refresh_tick >= 2:
+                self._connection_refresh_tick = 0
+                self._refresh_connections()
+        else:
+            self._connection_refresh_tick = 0
 
     def _build_tray(self) -> None:
         self.tray = QSystemTrayIcon(self)
@@ -351,6 +366,33 @@ class MainWindow(QMainWindow):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _test_latency_group(self, group: str, proxies: object) -> None:
+        if not self.api or not isinstance(proxies, list):
+            return
+
+        base = f"http://127.0.0.1:{self.settings.controller_port}"
+        secret = self._controller_secret
+        names = [str(name) for name in proxies]
+
+        def measure(proxy: str) -> tuple[str, int]:
+            client = MihomoApi(base, secret, timeout=6.0)
+            try:
+                return proxy, client.delay(proxy)
+            except Exception as exc:
+                self.bridge.log.emit(f"[latency] {proxy}: {exc}")
+                return proxy, -1
+            finally:
+                client.close()
+
+        def worker() -> None:
+            with ThreadPoolExecutor(max_workers=min(6, max(1, len(names)))) as pool:
+                futures = [pool.submit(measure, proxy) for proxy in names]
+                for future in as_completed(futures):
+                    proxy, delay = future.result()
+                    self.bridge.latency.emit(group, proxy, delay)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _refresh_connections(self) -> None:
         if not self.api:
             self.connections.set_connections({})
@@ -408,6 +450,20 @@ class MainWindow(QMainWindow):
         self._run_subscription_task(
             lambda: self.subscription_service.update(profile_name)
         )
+
+    def _update_all_subscriptions(self) -> None:
+        def worker() -> None:
+            try:
+                infos = self.subscription_service.update_all()
+                for info in infos:
+                    self.bridge.subscription_ready.emit(info.profile_name)
+                self.bridge.log.emit(
+                    f"[subscription] Bulk update complete: {len(infos)} profile(s)."
+                )
+            except Exception as exc:
+                self.bridge.subscription_error.emit(str(exc))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _run_subscription_task(self, operation) -> None:
         def worker() -> None:
