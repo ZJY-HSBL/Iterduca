@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,8 +41,6 @@ class LogService:
                     if not source.exists():
                         continue
                     target.write(source.read_bytes())
-                    if target.tell() and not target.readable():
-                        pass
 
     def clear(self) -> None:
         with self._lock:
