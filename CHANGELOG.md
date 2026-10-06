@@ -4,6 +4,22 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [0.8.0] - 2026-10-07
+
+### Added
+
+- Temporary rule enable/disable control using Mihomo `/rules/disable`.
+- Rules table columns for index, current state, and hit count.
+- DNS Query diagnostics using the current Mihomo `/dns/query` API.
+- Structured DNS result viewer for common record types.
+- Regression tests for rule-state PATCH payloads and DNS query parameters.
+
+### Changed
+
+- Rules page now clearly states that disabled state resets after core restart.
+- DNS diagnostics run off the Qt main thread.
+- Version metadata and bilingual documentation updated for v0.8.0.
+
 ## [0.7.0] - 2026-10-07
 
 ### Added
