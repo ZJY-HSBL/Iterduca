@@ -549,7 +549,9 @@ class MainWindow(QMainWindow):
         def worker() -> None:
             client = MihomoApi(base, secret, timeout=2.0)
             try:
-                self.bridge.memory.emit(client.memory())
+                memory = client.memory()
+                if self.core.running:
+                    self.bridge.memory.emit(memory)
             except Exception as exc:
                 self.bridge.log.emit(f"[memory] {exc}")
             finally:
