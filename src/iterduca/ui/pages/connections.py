@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
+
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -19,7 +22,7 @@ class ConnectionsPage(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        self._ids: list[str] = []
+        self._items: list[dict] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 24, 28, 24)
@@ -50,15 +53,27 @@ class ConnectionsPage(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(self.table, 1)
+        self.table.itemSelectionChanged.connect(self._show_details)
+        layout.addWidget(self.table, 3)
+
+        detail_label = QLabel("Connection details")
+        detail_label.setObjectName("Muted")
+        layout.addWidget(detail_label)
+
+        self.details = QPlainTextEdit()
+        self.details.setReadOnly(True)
+        self.details.setMaximumBlockCount(400)
+        self.details.setPlaceholderText("Select a connection to inspect its metadata.")
+        layout.addWidget(self.details, 2)
 
     def set_connections(self, payload: dict) -> None:
         items = payload.get("connections", [])
         rows = items if isinstance(items, list) else []
         self.table.setRowCount(0)
-        self._ids = []
+        self._items = []
+        self.details.clear()
 
-        for row_index, item in enumerate(rows):
+        for item in rows:
             if not isinstance(item, dict):
                 continue
             metadata = item.get("metadata", {})
@@ -74,16 +89,28 @@ class ConnectionsPage(QWidget):
                 self._format_bytes(item.get("upload", 0)),
                 self._format_bytes(item.get("download", 0)),
             ]
-            connection_id = str(item.get("id") or "")
-            self._ids.append(connection_id)
-            self.table.insertRow(row_index)
+            self._items.append(item)
+            row = self.table.rowCount()
+            self.table.insertRow(row)
             for column, value in enumerate(values):
-                self.table.setItem(row_index, column, QTableWidgetItem(value))
+                self.table.setItem(row, column, QTableWidgetItem(value))
 
     def _close_selected(self) -> None:
         row = self.table.currentRow()
-        if 0 <= row < len(self._ids) and self._ids[row]:
-            self.close_selected_requested.emit(self._ids[row])
+        if not 0 <= row < len(self._items):
+            return
+        connection_id = str(self._items[row].get("id") or "")
+        if connection_id:
+            self.close_selected_requested.emit(connection_id)
+
+    def _show_details(self) -> None:
+        row = self.table.currentRow()
+        if not 0 <= row < len(self._items):
+            self.details.clear()
+            return
+        self.details.setPlainText(
+            json.dumps(self._items[row], ensure_ascii=False, indent=2)
+        )
 
     @staticmethod
     def _format_bytes(value: object) -> str:
