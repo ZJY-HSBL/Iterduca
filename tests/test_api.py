@@ -116,3 +116,40 @@ def test_proxy_provider_and_cache_endpoints() -> None:
     assert ("GET", "/providers/proxies/a%2Fb/healthcheck") in paths
     assert ("POST", "/cache/dns/flush") in paths
     assert ("POST", "/cache/fakeip/flush") in paths
+
+
+def test_rule_toggle_and_dns_query_endpoints() -> None:
+    api = MihomoApi("http://127.0.0.1:9090")
+    fake = FakeClient()
+    api._client = fake  # type: ignore[assignment]
+
+    original_request = fake.request
+
+    def request(method: str, path: str, **kwargs):
+        if path == "/dns/query":
+            req = httpx.Request(method, f"http://localhost{path}")
+            fake.calls.append((method, path, kwargs))
+            return httpx.Response(
+                200,
+                request=req,
+                json={
+                    "Status": 0,
+                    "Answer": [
+                        {"name": "example.com.", "type": 1, "TTL": 60, "data": "1.2.3.4"}
+                    ],
+                },
+            )
+        return original_request(method, path, **kwargs)
+
+    fake.request = request  # type: ignore[method-assign]
+
+    api.set_rule_disabled(12, True)
+    result = api.dns_query("example.com", "A")
+
+    rule_call = next(call for call in fake.calls if call[1] == "/rules/disable")
+    dns_call = next(call for call in fake.calls if call[1] == "/dns/query")
+
+    assert rule_call[0] == "PATCH"
+    assert rule_call[2]["json"] == {"12": True}
+    assert dns_call[2]["params"] == {"name": "example.com", "type": "A"}
+    assert result["Answer"][0]["data"] == "1.2.3.4"
