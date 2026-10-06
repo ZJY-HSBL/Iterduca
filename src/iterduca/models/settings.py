@@ -27,6 +27,7 @@ class AppSettings:
     tun_auto_detect_interface: bool = True
     tun_dns_hijack: bool = True
     tun_strict_route: bool = False
+    tun_bypass_private_networks: bool = True
     minimize_to_tray: bool = True
 
     @classmethod
@@ -44,7 +45,7 @@ class AppSettings:
         return asdict(self)
 
     def tun_config(self) -> dict[str, Any]:
-        return {
+        config: dict[str, Any] = {
             "enable": self.tun_enabled,
             "stack": self.tun_stack,
             "auto-route": self.tun_auto_route,
@@ -52,6 +53,18 @@ class AppSettings:
             "dns-hijack": ["any:53", "tcp://any:53"] if self.tun_dns_hijack else [],
             "strict-route": self.tun_strict_route,
         }
+        if self.tun_bypass_private_networks:
+            config["route-exclude-address"] = [
+                "10.0.0.0/8",
+                "172.16.0.0/12",
+                "192.168.0.0/16",
+                "127.0.0.0/8",
+                "169.254.0.0/16",
+                "::1/128",
+                "fc00::/7",
+                "fe80::/10",
+            ]
+        return config
 
     @property
     def core_file(self) -> Path | None:
