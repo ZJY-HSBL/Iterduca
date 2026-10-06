@@ -107,6 +107,7 @@ class MainWindow(QMainWindow):
         self.resize(1080, 700)
         self.setMinimumSize(900, 580)
         self._build_ui()
+        self._restore_recent_logs()
         self._connect_signals()
         self._build_tray()
         self._refresh_profiles()
@@ -240,6 +241,10 @@ class MainWindow(QMainWindow):
         )
         self.bridge.update_result.connect(self._on_update_result)
         self.bridge.update_error.connect(self._on_update_error)
+
+    def _restore_recent_logs(self) -> None:
+        for line in self.log_service.tail():
+            self.logs.append(line)
 
     def _log(self, message: str) -> None:
         self.logs.append(message)
