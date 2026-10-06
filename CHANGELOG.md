@@ -4,6 +4,21 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [0.7.0] - 2026-10-07
+
+### Added
+
+- Proxy Providers page backed by the current Mihomo `/providers/proxies` API.
+- Selected-provider update, bounded-concurrency bulk update, and provider healthcheck.
+- Provider proxy-count and alive-count summary.
+- Tools page for DNS cache flush and Fake-IP cache flush.
+- Regression coverage for proxy-provider and cache maintenance endpoints.
+
+### Changed
+
+- Provider updates refresh both provider metadata and proxy groups.
+- Version metadata and bilingual documentation updated for v0.7.0.
+
 ## [0.6.0] - 2026-10-07
 
 ### Added
