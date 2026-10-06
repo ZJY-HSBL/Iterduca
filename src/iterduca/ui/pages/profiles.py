@@ -20,6 +20,7 @@ class ProfilesPage(QWidget):
     active_profile_changed = pyqtSignal(str)
     subscription_add_requested = pyqtSignal(str)
     subscription_update_requested = pyqtSignal(str)
+    subscription_update_all_requested = pyqtSignal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -53,15 +54,18 @@ class ProfilesPage(QWidget):
         actions = QHBoxLayout()
         self.import_button = QPushButton("Import YAML")
         self.update_button = QPushButton("Update subscription")
+        self.update_all_button = QPushButton("Update all")
         self.use_button = QPushButton("Use selected")
         self.use_button.setObjectName("PrimaryButton")
         actions.addWidget(self.import_button)
         actions.addWidget(self.update_button)
+        actions.addWidget(self.update_all_button)
         actions.addWidget(self.use_button)
         layout.addLayout(actions)
 
         self.import_button.clicked.connect(self._pick_file)
         self.update_button.clicked.connect(self._update_subscription)
+        self.update_all_button.clicked.connect(self.subscription_update_all_requested.emit)
         self.use_button.clicked.connect(self._activate)
         self._profiles: list[ProfileInfo] = []
         self._subscription_names: set[str] = set()
