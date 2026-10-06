@@ -48,6 +48,9 @@ class ProfileService:
             raise FileNotFoundError(filename)
         return candidate
 
+    def delete(self, filename: str) -> None:
+        self.resolve(filename).unlink()
+
     @staticmethod
     def _read_yaml(path: Path) -> dict:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
