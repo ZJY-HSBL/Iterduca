@@ -67,6 +67,9 @@ class TunPage(QWidget):
         self.strict_route = QCheckBox("Enable strict route / Windows DNS leak protection")
         form.addRow("Strict route", self.strict_route)
 
+        self.bypass_private = QCheckBox("Keep RFC1918/link-local networks outside TUN")
+        form.addRow("Local network", self.bypass_private)
+
         layout.addLayout(form)
 
         self.save = QPushButton("Save TUN settings")
@@ -100,6 +103,7 @@ class TunPage(QWidget):
         self.auto_detect.setChecked(settings.tun_auto_detect_interface)
         self.dns_hijack.setChecked(settings.tun_dns_hijack)
         self.strict_route.setChecked(settings.tun_strict_route)
+        self.bypass_private.setChecked(settings.tun_bypass_private_networks)
 
         self.privilege.setText(
             "Administrator privileges: available"
@@ -125,5 +129,6 @@ class TunPage(QWidget):
                 "tun_auto_detect_interface": self.auto_detect.isChecked(),
                 "tun_dns_hijack": self.dns_hijack.isChecked(),
                 "tun_strict_route": self.strict_route.isChecked(),
+                "tun_bypass_private_networks": self.bypass_private.isChecked(),
             }
         )
