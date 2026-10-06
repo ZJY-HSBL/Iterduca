@@ -42,9 +42,11 @@ from iterduca.ui.pages.overrides import OverridesPage
 from iterduca.ui.pages.overview import OverviewPage
 from iterduca.ui.pages.profiles import ProfilesPage
 from iterduca.ui.pages.proxies import ProxiesPage
+from iterduca.ui.pages.proxy_providers import ProxyProvidersPage
 from iterduca.ui.pages.rule_providers import RuleProvidersPage
 from iterduca.ui.pages.rules import RulesPage
 from iterduca.ui.pages.settings import SettingsPage
+from iterduca.ui.pages.tools import ToolsPage
 from iterduca.ui.pages.tun import TunPage
 
 
@@ -57,6 +59,8 @@ class UiBridge(QObject):
     memory = pyqtSignal(int)
     rule_provider_updated = pyqtSignal(str)
     rule_provider_error = pyqtSignal(str)
+    proxy_provider_updated = pyqtSignal(str)
+    proxy_provider_error = pyqtSignal(str)
 
 
 class MainWindow(QMainWindow):
@@ -120,23 +124,27 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.overview = OverviewPage()
         self.proxies = ProxiesPage()
+        self.proxy_providers = ProxyProvidersPage()
         self.profiles = ProfilesPage()
         self.connections = ConnectionsPage()
         self.rules = RulesPage()
         self.rule_providers = RuleProvidersPage()
         self.overrides = OverridesPage()
         self.tun = TunPage()
+        self.tools = ToolsPage()
         self.logs = LogsPage()
         self.settings_page = SettingsPage()
         pages = [
             ("Overview", self.overview),
             ("Proxies", self.proxies),
+            ("Proxy Providers", self.proxy_providers),
             ("Profiles", self.profiles),
             ("Connections", self.connections),
             ("Rules", self.rules),
             ("Rule Providers", self.rule_providers),
             ("Overrides", self.overrides),
             ("TUN", self.tun),
+            ("Tools", self.tools),
             ("Logs", self.logs),
             ("Settings", self.settings_page),
         ]
@@ -177,6 +185,14 @@ class MainWindow(QMainWindow):
         self.proxies.proxy_selected.connect(self._select_proxy)
         self.proxies.latency_requested.connect(self._test_latency)
         self.proxies.latency_group_requested.connect(self._test_latency_group)
+        self.proxy_providers.refresh_requested.connect(self._refresh_proxy_providers)
+        self.proxy_providers.update_requested.connect(self._update_proxy_provider)
+        self.proxy_providers.update_all_requested.connect(
+            self._update_all_proxy_providers
+        )
+        self.proxy_providers.healthcheck_requested.connect(
+            self._healthcheck_proxy_provider
+        )
         self.connections.refresh_requested.connect(self._refresh_connections)
         self.connections.close_selected_requested.connect(self._close_connection)
         self.connections.close_all_requested.connect(self._close_all_connections)
@@ -191,6 +207,8 @@ class MainWindow(QMainWindow):
         self.tun.save_requested.connect(self._save_tun)
         self.tun.elevate_requested.connect(self._elevate)
         self.tun.recover_requested.connect(self._recover_standard_mode)
+        self.tools.flush_dns_requested.connect(self._flush_dns_cache)
+        self.tools.flush_fakeip_requested.connect(self._flush_fakeip_cache)
         self.bridge.log.connect(self.logs.append)
         self.bridge.traffic.connect(self.overview.set_traffic)
         self.bridge.latency.connect(self.proxies.set_delay)
@@ -199,6 +217,8 @@ class MainWindow(QMainWindow):
         self.bridge.memory.connect(self.overview.set_memory)
         self.bridge.rule_provider_updated.connect(self._on_rule_provider_updated)
         self.bridge.rule_provider_error.connect(self._on_rule_provider_error)
+        self.bridge.proxy_provider_updated.connect(self._on_proxy_provider_updated)
+        self.bridge.proxy_provider_error.connect(self._on_proxy_provider_error)
 
     def _build_health_timer(self) -> None:
         self._connection_refresh_tick = 0
@@ -314,6 +334,7 @@ class MainWindow(QMainWindow):
                 self._system_proxy_active = True
             self._start_traffic()
             self._refresh_proxies()
+            self._refresh_proxy_providers()
             self._refresh_connections()
             self._refresh_rules()
             self._refresh_rule_providers()
@@ -341,6 +362,7 @@ class MainWindow(QMainWindow):
             self._system_proxy_active = False
         self.core.stop()
         self.connections.set_connections({})
+        self.proxy_providers.set_providers({})
         self.rules.set_rules([])
         self.rule_providers.set_providers({})
         self.overview.set_traffic(0, 0)
@@ -451,6 +473,82 @@ class MainWindow(QMainWindow):
                     self.bridge.latency.emit(group, proxy, delay)
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def _refresh_proxy_providers(self) -> None:
+        if not self.api:
+            self.proxy_providers.set_providers({})
+            return
+        try:
+            self.proxy_providers.set_providers(self.api.proxy_providers())
+        except Exception as exc:
+            self.logs.append(f"[proxy-providers] {exc}")
+
+    def _update_proxy_provider(self, name: str) -> None:
+        self._run_proxy_provider_actions([name], "update")
+
+    def _update_all_proxy_providers(self, names: object) -> None:
+        if isinstance(names, list):
+            self._run_proxy_provider_actions([str(name) for name in names], "update")
+
+    def _healthcheck_proxy_provider(self, name: str) -> None:
+        self._run_proxy_provider_actions([name], "healthcheck")
+
+    def _run_proxy_provider_actions(self, names: list[str], action: str) -> None:
+        if not self.api or not names:
+            return
+        base = f"http://127.0.0.1:{self.settings.controller_port}"
+        secret = self._controller_secret
+
+        def execute(name: str) -> tuple[str, str | None]:
+            client = MihomoApi(base, secret, timeout=20.0)
+            try:
+                if action == "healthcheck":
+                    client.healthcheck_proxy_provider(name)
+                else:
+                    client.update_proxy_provider(name)
+                return name, None
+            except Exception as exc:
+                return name, str(exc)
+            finally:
+                client.close()
+
+        def worker() -> None:
+            with ThreadPoolExecutor(max_workers=min(4, len(names))) as pool:
+                futures = [pool.submit(execute, name) for name in names]
+                for future in as_completed(futures):
+                    name, error = future.result()
+                    if error:
+                        self.bridge.proxy_provider_error.emit(f"{name}: {error}")
+                    else:
+                        self.bridge.proxy_provider_updated.emit(name)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_proxy_provider_updated(self, name: str) -> None:
+        self.logs.append(f"[proxy-providers] Updated/checked {name}")
+        self._refresh_proxy_providers()
+        self._refresh_proxies()
+
+    def _on_proxy_provider_error(self, message: str) -> None:
+        self.logs.append(f"[proxy-providers] {message}")
+
+    def _flush_dns_cache(self) -> None:
+        if not self.api:
+            return
+        try:
+            self.api.flush_dns_cache()
+            self.logs.append("[tools] DNS cache flushed.")
+        except Exception as exc:
+            QMessageBox.warning(self, "DNS cache", str(exc))
+
+    def _flush_fakeip_cache(self) -> None:
+        if not self.api:
+            return
+        try:
+            self.api.flush_fakeip_cache()
+            self.logs.append("[tools] Fake-IP cache flushed.")
+        except Exception as exc:
+            QMessageBox.warning(self, "Fake-IP cache", str(exc))
 
     def _refresh_connections(self) -> None:
         if not self.api:
