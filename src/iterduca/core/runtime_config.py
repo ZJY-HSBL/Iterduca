@@ -32,6 +32,7 @@ class RuntimeConfigBuilder:
         mode: str,
         secret: str | None = None,
         overrides: dict | None = None,
+        tun: dict | None = None,
     ) -> RuntimeConfig:
         data = yaml.safe_load(source.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
@@ -39,6 +40,12 @@ class RuntimeConfigBuilder:
 
         if overrides:
             data = deep_merge(data, overrides)
+
+        if tun is not None:
+            existing_tun = data.get("tun", {})
+            if not isinstance(existing_tun, dict):
+                existing_tun = {}
+            data["tun"] = deep_merge(existing_tun, tun)
 
         token = secret or secrets.token_urlsafe(24)
         data["mixed-port"] = int(mixed_port)
