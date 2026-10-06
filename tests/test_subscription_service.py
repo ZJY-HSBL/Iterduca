@@ -39,3 +39,33 @@ def test_subscription_rejects_non_http_url(tmp_path: Path) -> None:
     service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
     with pytest.raises(ValueError):
         service.add("file:///secret.yaml")
+
+
+def test_update_all_refreshes_every_registered_subscription(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payloads = iter(
+        [
+            "proxies:\n  - {name: A, type: direct}\n",
+            "proxies:\n  - {name: B, type: direct}\n",
+            "proxies:\n  - {name: A2, type: direct}\n",
+            "proxies:\n  - {name: B2, type: direct}\n",
+        ]
+    )
+
+    def fake_get(*args, **kwargs):
+        return FakeResponse(next(payloads))
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
+    first = service.add("https://example.com/a.yaml")
+    second = service.add("https://example.com/b.yaml")
+
+    updated = service.update_all()
+
+    assert {item.profile_name for item in updated} == {
+        first.profile_name,
+        second.profile_name,
+    }
+    assert "name: A2" in (tmp_path / "profiles" / first.profile_name).read_text(encoding="utf-8")
+    assert "name: B2" in (tmp_path / "profiles" / second.profile_name).read_text(encoding="utf-8")
