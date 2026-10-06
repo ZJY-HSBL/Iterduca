@@ -4,6 +4,24 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [0.6.0] - 2026-10-07
+
+### Added
+
+- Rule Providers page backed by the current Mihomo `/providers/rules` API.
+- Refresh, selected-provider update, and bounded-concurrency bulk provider update.
+- Live Mihomo core memory metric on Overview.
+- Safe local Profile deletion with path confinement.
+- Subscription metadata cleanup for deleted profiles.
+- Regression tests for rule providers, memory, profile deletion, and subscription cleanup.
+
+### Changed
+
+- Subscription request User-Agent now follows the current Iterduca version.
+- Active Profile deletion stops the core and clears `active_profile` before file removal.
+- Memory polling ignores stale results after core shutdown.
+- Version metadata and bilingual documentation updated for v0.6.0.
+
 ## [0.5.0] - 2026-10-07
 
 ### Added
