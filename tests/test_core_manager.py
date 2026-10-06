@@ -56,3 +56,24 @@ def test_validate_rejects_invalid_config(tmp_path: Path, monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="configuration test failed"):
         CoreManager().validate(executable, config, tmp_path / "runtime")
+
+
+def test_version_uses_mihomo_version_flag(tmp_path: Path, monkeypatch) -> None:
+    executable = tmp_path / "mihomo.exe"
+    executable.write_text("", encoding="utf-8")
+    captured = {}
+
+    class Result:
+        returncode = 0
+        stdout = "Mihomo Meta v1.2.3 windows amd64"
+        stderr = ""
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        return Result()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+    version = CoreManager().version(executable)
+
+    assert captured["command"][1] == "-v"
+    assert version.startswith("Mihomo Meta")
