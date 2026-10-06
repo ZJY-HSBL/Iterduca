@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 
@@ -28,17 +29,23 @@ from iterduca.core.traffic import TrafficMonitor
 from iterduca.paths import AppPaths
 from iterduca.services.profile_service import ProfileService
 from iterduca.services.settings_service import SettingsService
+from iterduca.services.subscription_service import SubscriptionService
 from iterduca.system.proxy import SystemProxy
+from iterduca.ui.pages.connections import ConnectionsPage
 from iterduca.ui.pages.logs import LogsPage
 from iterduca.ui.pages.overview import OverviewPage
 from iterduca.ui.pages.profiles import ProfilesPage
 from iterduca.ui.pages.proxies import ProxiesPage
+from iterduca.ui.pages.rules import RulesPage
 from iterduca.ui.pages.settings import SettingsPage
 
 
 class UiBridge(QObject):
     log = pyqtSignal(str)
     traffic = pyqtSignal(int, int)
+    latency = pyqtSignal(str, str, int)
+    subscription_ready = pyqtSignal(str)
+    subscription_error = pyqtSignal(str)
 
 
 class MainWindow(QMainWindow):
@@ -47,6 +54,9 @@ class MainWindow(QMainWindow):
         self.paths = paths
         self.settings_service = SettingsService(paths.settings_file)
         self.profile_service = ProfileService(paths.profiles)
+        self.subscription_service = SubscriptionService(
+            paths.profiles, paths.subscriptions_file
+        )
         self.settings = self.settings_service.load()
         self.runtime_builder = RuntimeConfigBuilder(paths.runtime)
         self.bridge = UiBridge()
@@ -88,12 +98,16 @@ class MainWindow(QMainWindow):
         self.overview = OverviewPage()
         self.proxies = ProxiesPage()
         self.profiles = ProfilesPage()
+        self.connections = ConnectionsPage()
+        self.rules = RulesPage()
         self.logs = LogsPage()
         self.settings_page = SettingsPage()
         pages = [
             ("Overview", self.overview),
             ("Proxies", self.proxies),
             ("Profiles", self.profiles),
+            ("Connections", self.connections),
+            ("Rules", self.rules),
             ("Logs", self.logs),
             ("Settings", self.settings_page),
         ]
@@ -121,11 +135,21 @@ class MainWindow(QMainWindow):
         self.overview.mode_changed.connect(self._set_mode)
         self.profiles.import_requested.connect(self._import_profile)
         self.profiles.active_profile_changed.connect(self._set_active_profile)
+        self.profiles.subscription_add_requested.connect(self._add_subscription)
+        self.profiles.subscription_update_requested.connect(self._update_subscription)
         self.settings_page.save_requested.connect(self._save_settings)
         self.proxies.refresh_requested.connect(self._refresh_proxies)
         self.proxies.proxy_selected.connect(self._select_proxy)
+        self.proxies.latency_requested.connect(self._test_latency)
+        self.connections.refresh_requested.connect(self._refresh_connections)
+        self.connections.close_selected_requested.connect(self._close_connection)
+        self.connections.close_all_requested.connect(self._close_all_connections)
+        self.rules.refresh_requested.connect(self._refresh_rules)
         self.bridge.log.connect(self.logs.append)
         self.bridge.traffic.connect(self.overview.set_traffic)
+        self.bridge.latency.connect(self.proxies.set_delay)
+        self.bridge.subscription_ready.connect(self._on_subscription_ready)
+        self.bridge.subscription_error.connect(self._on_subscription_error)
 
     def _build_health_timer(self) -> None:
         self.health_timer = QTimer(self)
@@ -213,6 +237,8 @@ class MainWindow(QMainWindow):
                 self._system_proxy_active = True
             self._start_traffic()
             self._refresh_proxies()
+            self._refresh_connections()
+            self._refresh_rules()
             detail = (
                 f"127.0.0.1:{self.settings.mixed_port} · "
                 f"{self.settings.mode.upper()}"
@@ -234,6 +260,8 @@ class MainWindow(QMainWindow):
             self.system_proxy.disable()
             self._system_proxy_active = False
         self.core.stop()
+        self.connections.set_connections({})
+        self.rules.set_rules([])
         self.overview.set_traffic(0, 0)
         self.overview.set_running(False)
 
@@ -294,6 +322,62 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.warning(self, "Proxy switch failed", str(exc))
 
+    def _test_latency(self, group: str, proxy: str) -> None:
+        if not self.api:
+            return
+
+        base = f"http://127.0.0.1:{self.settings.controller_port}"
+        secret = self._controller_secret
+
+        def worker() -> None:
+            delay = -1
+            client = MihomoApi(base, secret, timeout=6.0)
+            try:
+                delay = client.delay(proxy)
+            except Exception as exc:
+                self.bridge.log.emit(f"[latency] {proxy}: {exc}")
+            finally:
+                client.close()
+            self.bridge.latency.emit(group, proxy, delay)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _refresh_connections(self) -> None:
+        if not self.api:
+            self.connections.set_connections({})
+            return
+        try:
+            self.connections.set_connections(self.api.connections())
+        except Exception as exc:
+            self.logs.append(f"[connections] {exc}")
+
+    def _close_connection(self, connection_id: str) -> None:
+        if not self.api:
+            return
+        try:
+            self.api.close_connection(connection_id)
+            self._refresh_connections()
+        except Exception as exc:
+            QMessageBox.warning(self, "Close connection failed", str(exc))
+
+    def _close_all_connections(self) -> None:
+        if not self.api:
+            return
+        try:
+            self.api.close_all_connections()
+            self._refresh_connections()
+        except Exception as exc:
+            QMessageBox.warning(self, "Close connections failed", str(exc))
+
+    def _refresh_rules(self) -> None:
+        if not self.api:
+            self.rules.set_rules([])
+            return
+        try:
+            self.rules.set_rules(self.api.rules())
+        except Exception as exc:
+            self.logs.append(f"[rules] {exc}")
+
     def _import_profile(self, path: str) -> None:
         try:
             profile = self.profile_service.import_file(Path(path))
@@ -308,9 +392,42 @@ class MainWindow(QMainWindow):
         self.settings_service.save(self.settings)
         self._refresh_profiles()
 
+    def _add_subscription(self, url: str) -> None:
+        self._run_subscription_task(lambda: self.subscription_service.add(url))
+
+    def _update_subscription(self, profile_name: str) -> None:
+        self._run_subscription_task(
+            lambda: self.subscription_service.update(profile_name)
+        )
+
+    def _run_subscription_task(self, operation) -> None:
+        def worker() -> None:
+            try:
+                info = operation()
+                self.bridge.subscription_ready.emit(info.profile_name)
+            except Exception as exc:
+                self.bridge.subscription_error.emit(str(exc))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_subscription_ready(self, profile_name: str) -> None:
+        if not self.settings.active_profile:
+            self.settings.active_profile = profile_name
+            self.settings_service.save(self.settings)
+        self._refresh_profiles()
+        self.logs.append(f"[subscription] Updated {profile_name}")
+
+    def _on_subscription_error(self, message: str) -> None:
+        QMessageBox.warning(self, "Subscription failed", message)
+
     def _refresh_profiles(self) -> None:
+        subscription_names = {
+            item.profile_name for item in self.subscription_service.list()
+        }
         self.profiles.set_profiles(
-            self.profile_service.list_profiles(), self.settings.active_profile
+            self.profile_service.list_profiles(),
+            self.settings.active_profile,
+            subscription_names,
         )
 
     def _save_settings(self, values: object) -> None:
