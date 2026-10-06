@@ -15,6 +15,7 @@ class AppPaths:
     logs: Path
     settings_file: Path
     subscriptions_file: Path
+    override_file: Path
 
     @classmethod
     def discover(cls) -> "AppPaths":
@@ -30,6 +31,7 @@ class AppPaths:
             logs=root / "logs",
             settings_file=root / "settings.json",
             subscriptions_file=root / "subscriptions.json",
+            override_file=root / "override.yaml",
         )
 
     def ensure(self) -> None:
