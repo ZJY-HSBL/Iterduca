@@ -72,3 +72,47 @@ def test_rule_provider_and_memory_endpoints() -> None:
     assert memory == 123456
     assert fake.calls[-1][0] == "PUT"
     assert fake.calls[-1][1] == "/providers/rules/geo%2Fsite"
+
+
+def test_proxy_provider_and_cache_endpoints() -> None:
+    api = MihomoApi("http://127.0.0.1:9090")
+    fake = FakeClient()
+    api._client = fake  # type: ignore[assignment]
+
+    original_request = fake.request
+
+    def request(method: str, path: str, **kwargs):
+        if path == "/providers/proxies":
+            req = httpx.Request(method, f"http://localhost{path}")
+            fake.calls.append((method, path, kwargs))
+            return httpx.Response(
+                200,
+                request=req,
+                json={
+                    "providers": {
+                        "airport": {
+                            "type": "Proxy",
+                            "proxies": [
+                                {"name": "A", "alive": True},
+                                {"name": "B", "alive": False},
+                            ],
+                        }
+                    }
+                },
+            )
+        return original_request(method, path, **kwargs)
+
+    fake.request = request  # type: ignore[method-assign]
+
+    providers = api.proxy_providers()
+    api.update_proxy_provider("a/b")
+    api.healthcheck_proxy_provider("a/b")
+    api.flush_dns_cache()
+    api.flush_fakeip_cache()
+
+    assert len(providers["airport"]["proxies"]) == 2
+    paths = [(method, path) for method, path, _ in fake.calls]
+    assert ("PUT", "/providers/proxies/a%2Fb") in paths
+    assert ("GET", "/providers/proxies/a%2Fb/healthcheck") in paths
+    assert ("POST", "/cache/dns/flush") in paths
+    assert ("POST", "/cache/fakeip/flush") in paths
