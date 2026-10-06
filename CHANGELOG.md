@@ -4,6 +4,26 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [0.5.0] - 2026-10-07
+
+### Added
+
+- Single-instance process guard using local Qt IPC.
+- Existing-window activation when Iterduca is launched a second time.
+- Windows startup integration with background tray launch.
+- Mihomo executable auto-discovery from local directories and PATH.
+- Mihomo version detection through the core `-v` command.
+- Settings controls for core detection, version inspection, and Windows startup.
+- Windows executable version-resource generation.
+- Release packaging for standalone EXE, portable ZIP, and SHA256 checksum manifest.
+- CI coverage for core discovery, startup command generation, core version detection, and version metadata generation.
+
+### Changed
+
+- Background startup no longer opens the main window when a system tray is available.
+- Release artifacts now carry product/file version metadata.
+- Version metadata and bilingual documentation updated for v0.5.0.
+
 ## [0.4.0] - 2026-10-07
 
 ### Added
