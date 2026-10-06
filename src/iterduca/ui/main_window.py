@@ -1059,6 +1059,7 @@ class MainWindow(QMainWindow):
         self.settings.mode = str(values["mode"])
         requested_proxy = bool(values["system_proxy_enabled"])
         requested_startup = bool(values["startup_enabled"])
+        self.settings.minimize_to_tray = bool(values["minimize_to_tray"])
         if requested_startup != self.settings.startup_enabled:
             try:
                 self.startup_service.set_enabled(requested_startup)
