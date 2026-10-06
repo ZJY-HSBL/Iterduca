@@ -35,12 +35,21 @@ class DiagnosticsService:
             "active_profile_set": bool(settings.active_profile),
             "core_path_set": bool(settings.core_path),
         }
+        log_inventory = [
+            {
+                "name": log_file.name,
+                "size_bytes": log_file.stat().st_size,
+            }
+            for log_file in sorted(self.paths.logs.glob("iterduca.log*"))
+            if log_file.is_file()
+        ]
         metadata = {
             "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "iterduca_version": APP_VERSION,
             "python": sys.version,
             "platform": platform.platform(),
             "settings": safe_settings,
+            "log_inventory": log_inventory,
         }
 
         with zipfile.ZipFile(
@@ -52,6 +61,3 @@ class DiagnosticsService:
                 "diagnostics.json",
                 json.dumps(metadata, ensure_ascii=False, indent=2),
             )
-            for log_file in sorted(self.paths.logs.glob("iterduca.log*")):
-                if log_file.is_file():
-                    archive.write(log_file, f"logs/{log_file.name}")
