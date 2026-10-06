@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 import httpx
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication,
@@ -67,6 +67,7 @@ class MainWindow(QMainWindow):
         self._refresh_profiles()
         self.settings_page.load_settings(self.settings)
         self.overview.set_mode(self.settings.mode)
+        self._build_health_timer()
 
     def _build_ui(self) -> None:
         root = QWidget()
@@ -125,6 +126,22 @@ class MainWindow(QMainWindow):
         self.proxies.proxy_selected.connect(self._select_proxy)
         self.bridge.log.connect(self.logs.append)
         self.bridge.traffic.connect(self.overview.set_traffic)
+
+    def _build_health_timer(self) -> None:
+        self.health_timer = QTimer(self)
+        self.health_timer.setInterval(1000)
+        self.health_timer.timeout.connect(self._poll_core_state)
+        self.health_timer.start()
+
+    def _poll_core_state(self) -> None:
+        has_runtime_state = (
+            self.api is not None
+            or self.traffic_monitor is not None
+            or self._system_proxy_active
+        )
+        if has_runtime_state and not self.core.running:
+            self.logs.append("[core] Mihomo exited unexpectedly; runtime state restored.")
+            self.stop_core()
 
     def _build_tray(self) -> None:
         self.tray = QSystemTrayIcon(self)
@@ -202,7 +219,7 @@ class MainWindow(QMainWindow):
             )
             self.overview.set_running(True, detail)
         except Exception as exc:
-            self.core.stop()
+            self.stop_core()
             self.overview.set_running(False, str(exc))
             QMessageBox.critical(self, "Unable to start", str(exc))
 
