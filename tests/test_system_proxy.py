@@ -32,3 +32,78 @@ def test_invalid_proxy_recovery_state_is_discarded(tmp_path: Path) -> None:
 
     assert service._read_state() is None
     assert not state.exists()
+
+
+class FakeWinReg:
+    HKEY_CURRENT_USER = object()
+    KEY_QUERY_VALUE = 1
+    KEY_SET_VALUE = 2
+    REG_DWORD = 4
+    REG_SZ = 1
+
+    def __init__(self, enabled: int, server: str) -> None:
+        self.values = {
+            "ProxyEnable": enabled,
+            "ProxyServer": server,
+        }
+
+    def OpenKey(self, *args, **kwargs):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def QueryValueEx(self, key, name: str):
+        if name not in self.values:
+            raise FileNotFoundError(name)
+        return self.values[name], None
+
+    def SetValueEx(self, key, name: str, reserved, kind, value) -> None:
+        self.values[name] = value
+
+
+def test_recover_stale_restores_only_dead_managed_proxy(
+    tmp_path: Path, monkeypatch
+) -> None:
+    service = SystemProxy(tmp_path / "proxy-state.json")
+    service._write_state(
+        ProxyRecoveryState(
+            previous=ProxySnapshot(enabled=1, server="old.proxy:8080"),
+            managed_server="127.0.0.1:7890",
+        )
+    )
+    fake = FakeWinReg(enabled=1, server="127.0.0.1:7890")
+    monkeypatch.setattr(service, "_winreg", lambda: fake)
+    monkeypatch.setattr(service, "_port_open", lambda host, port: False)
+    monkeypatch.setattr(SystemProxy, "_refresh", classmethod(lambda cls: None))
+
+    recovered = service.recover_stale()
+
+    assert recovered is True
+    assert fake.values["ProxyEnable"] == 1
+    assert fake.values["ProxyServer"] == "old.proxy:8080"
+    assert not (tmp_path / "proxy-state.json").exists()
+
+
+def test_recover_stale_keeps_live_managed_proxy(
+    tmp_path: Path, monkeypatch
+) -> None:
+    service = SystemProxy(tmp_path / "proxy-state.json")
+    service._write_state(
+        ProxyRecoveryState(
+            previous=ProxySnapshot(enabled=0, server=""),
+            managed_server="127.0.0.1:7890",
+        )
+    )
+    fake = FakeWinReg(enabled=1, server="127.0.0.1:7890")
+    monkeypatch.setattr(service, "_winreg", lambda: fake)
+    monkeypatch.setattr(service, "_port_open", lambda host, port: True)
+
+    recovered = service.recover_stale()
+
+    assert recovered is False
+    assert fake.values["ProxyServer"] == "127.0.0.1:7890"
+    assert (tmp_path / "proxy-state.json").exists()
