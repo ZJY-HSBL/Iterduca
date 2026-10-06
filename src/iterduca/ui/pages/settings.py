@@ -69,6 +69,9 @@ class SettingsPage(QWidget):
 
         self.startup = QCheckBox("Start Iterduca with Windows")
         form.addRow("Startup", self.startup)
+
+        self.minimize_to_tray = QCheckBox("Close button minimizes Iterduca to the system tray")
+        form.addRow("Window behavior", self.minimize_to_tray)
         layout.addLayout(form)
 
         save = QPushButton("Save settings")
@@ -85,6 +88,7 @@ class SettingsPage(QWidget):
         self.mode.setCurrentIndex(max(0, index))
         self.system_proxy.setChecked(settings.system_proxy_enabled)
         self.startup.setChecked(settings.startup_enabled)
+        self.minimize_to_tray.setChecked(settings.minimize_to_tray)
 
     def set_core_status(self, text: str) -> None:
         self.core_status.setText(text)
@@ -106,5 +110,6 @@ class SettingsPage(QWidget):
                 "mode": self.mode.currentText(),
                 "system_proxy_enabled": self.system_proxy.isChecked(),
                 "startup_enabled": self.startup.isChecked(),
+                "minimize_to_tray": self.minimize_to_tray.isChecked(),
             }
         )
