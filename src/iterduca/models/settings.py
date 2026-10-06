@@ -43,6 +43,16 @@ class AppSettings:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    def tun_config(self) -> dict[str, Any]:
+        return {
+            "enable": self.tun_enabled,
+            "stack": self.tun_stack,
+            "auto-route": self.tun_auto_route,
+            "auto-detect-interface": self.tun_auto_detect_interface,
+            "dns-hijack": ["any:53", "tcp://any:53"] if self.tun_dns_hijack else [],
+            "strict-route": self.tun_strict_route,
+        }
+
     @property
     def core_file(self) -> Path | None:
         return Path(self.core_path).expanduser() if self.core_path else None
