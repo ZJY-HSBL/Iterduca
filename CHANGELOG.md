@@ -4,6 +4,26 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [0.4.0] - 2026-10-07
+
+### Added
+
+- Windows TUN management page with administrator privilege detection.
+- UAC relaunch path for TUN startup.
+- Managed TUN configuration for mips, system, gvisor, and mixed stacks.
+- Auto-route, automatic outbound-interface detection, DNS hijack, and strict-route settings.
+- Optional RFC1918, loopback, link-local, and IPv6 local-network exclusions.
+- Safe standard-mode recovery action for disabling TUN without deleting arbitrary system routes.
+- Mihomo `-t` configuration preflight before core startup.
+- Regression tests for TUN ownership, private-network bypass, and configuration validation.
+
+### Changed
+
+- TUN defaults to the current Mihomo-recommended `mips` stack.
+- Iterduca-owned TUN fields take precedence over profile and override values.
+- Windows system proxy is not enabled while TUN mode is active.
+- Version metadata and bilingual documentation updated for v0.4.0.
+
 ## [0.3.0] - 2026-10-07
 
 ### Added

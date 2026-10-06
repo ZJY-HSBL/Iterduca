@@ -4,7 +4,7 @@
 
 Iterduca 是一款 Windows 优先的桌面代理与网络路由客户端，使用 Python + PyQt6 开发，以 Mihomo 作为外部路由核心。项目将桌面界面、配置管理、运行时配置、系统网络集成和核心进程生命周期明确分层，而不是把所有逻辑直接堆在 UI 事件中。
 
-> 当前版本：**v0.3.0**
+> 当前版本：**v0.4.0**
 
 [English README](README.md)
 
@@ -14,7 +14,7 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 
 **Iterduca** 的命名取自“引导旅程”的拉丁语意象：让每一次连接沿合适的路径抵达目标。
 
-## v0.3.0 已实现
+## v0.4.0 已实现
 
 - PyQt6 桌面客户端与深色界面
 - YAML 配置导入与本地管理
@@ -23,6 +23,13 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 - 本地 Controller API 与随机 Secret
 - Rule / Global / Direct 模式实时切换
 - 代理组读取与节点切换\n- 单节点延迟测试与当前代理组批量测速\n- Connections 实时连接查看、单连接关闭与全部关闭\n- Rules 规则表格与客户端过滤\n- 订阅 URL 导入、原位更新与一键更新全部订阅\n- Runtime YAML 覆写编辑器与嵌套 deep-merge\n- Connections 页面可见时自动刷新
+- Windows TUN 管理页面、管理员权限状态与 UAC 提权重启
+- 支持 mips / system / gvisor / mixed 四种 TUN 协议栈
+- TUN Auto Route、出口网卡自动检测、DNS Hijack 与 Strict Route 控制
+- 可选绕过私网与链路本地网段，保留局域网访问
+- 每次启动 Core 前执行 Mihomo `-t` 完整配置预检
+- TUN 安全降级：停止 Core、关闭 TUN、回到普通代理模式
+- TUN 运行时不会额外叠加 Windows WinINet 系统代理
 - 基于 Controller WebSocket 的实时上传/下载速率
 - Mihomo 标准输出日志查看
 - Windows WinINet 系统代理开启与恢复
@@ -120,7 +127,7 @@ python -m ruff check src tests
 
 下一阶段计划增加 Connections 连接查看、Rules / Rule Provider 管理、订阅 URL 更新、节点延迟测试、Core 更新、配置覆写、TUN、流量历史以及 Windows 安装包与签名。
 
-TUN 没有被粗暴地塞入首个 MVP。它涉及管理员权限、系统路由、DNS、异常恢复等独立问题，应当在普通系统代理稳定后单独设计和测试。
+v0.4.0 已加入受控 TUN 能力。Iterduca 会在 Windows 上检查管理员权限，默认使用 Mihomo 的 `mips` 协议栈，Strict Route 默认关闭，并在真正启动 Core 前先执行完整配置预检。
 
 ## 安全设计
 

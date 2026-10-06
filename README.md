@@ -4,7 +4,7 @@
 
 Iterduca is a Windows-first desktop proxy and network routing client built with Python and PyQt6. It uses Mihomo as an external routing core and keeps the desktop application, profile management, runtime configuration, system integration, and core process lifecycle clearly separated.
 
-> Current version: **v0.3.0**
+> Current version: **v0.4.0**
 
 [中文说明](README.zh-CN.md)
 
@@ -14,7 +14,7 @@ Iterduca is not a fork or a reskin of another desktop client. The application la
 
 The name **Iterduca** comes from the Latin idea of guiding a journey: each connection is guided through the appropriate route to its destination.
 
-## v0.3.0 features
+## v0.4.0 features
 
 - PyQt6 desktop interface with a compact dark UI
 - Imported YAML profile management
@@ -23,6 +23,13 @@ The name **Iterduca** comes from the Latin idea of guiding a journey: each conne
 - Local Controller API with an automatically generated secret
 - Rule / Global / Direct mode switching
 - Proxy group discovery and node switching\n- Selected-node and full proxy-group latency testing\n- Live connection inspection with per-connection and close-all controls\n- Rule table with client-side filtering\n- Subscription URL import, in-place refresh, and bulk update\n- Runtime YAML override editor with nested deep-merge semantics\n- Automatic Connections refresh while the page is visible
+- Windows TUN management page with elevation status and UAC relaunch
+- Managed TUN stacks: mips, system, gvisor, and mixed
+- TUN auto-route, outbound-interface detection, DNS hijack, and strict-route controls
+- Optional private/link-local network exclusions for LAN access
+- Mihomo `-t` preflight validation before every core start
+- Safe TUN recovery path that disables TUN and returns to standard proxy mode
+- WinINet system proxy is not layered on top of TUN mode
 - Real-time upload/download traffic through the Controller WebSocket
 - Mihomo stdout log viewer
 - Windows WinINet system proxy enable/restore
@@ -120,7 +127,7 @@ python -m ruff check src tests
 
 The next milestones are connection inspection, rules and rule-provider views, subscription URL updates, latency testing, core update management, configuration overrides, TUN mode, traffic history, and Windows packaging/signing.
 
-TUN support is intentionally not part of the first MVP because it requires a separate privilege, routing, DNS, and recovery design rather than being treated as a simple toggle.
+TUN is available in v0.4.0 with explicit privilege checks and guarded runtime configuration. Iterduca defaults to the Mihomo `mips` stack, keeps strict-route optional, and validates the complete runtime configuration before the core is started.
 
 ## Security design
 
