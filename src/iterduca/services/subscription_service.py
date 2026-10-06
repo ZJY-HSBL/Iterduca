@@ -59,6 +59,13 @@ class SubscriptionService:
     def update_all(self) -> list[SubscriptionInfo]:
         return [self.update(item.profile_name) for item in self.list()]
 
+    def forget(self, profile_name: str) -> None:
+        data = self._load_metadata()
+        if profile_name not in data:
+            return
+        data.pop(profile_name, None)
+        self._save_metadata(data)
+
     def update(self, profile_name: str) -> SubscriptionInfo:
         data = self._load_metadata()
         item = data.get(profile_name)
@@ -99,6 +106,9 @@ class SubscriptionService:
     def _save_info(self, info: SubscriptionInfo) -> None:
         data = self._load_metadata()
         data[info.profile_name] = asdict(info)
+        self._save_metadata(data)
+
+    def _save_metadata(self, data: dict) -> None:
         self.metadata_file.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.metadata_file.with_suffix(".tmp")
         temporary.write_text(
