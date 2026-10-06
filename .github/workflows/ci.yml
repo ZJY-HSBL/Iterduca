@@ -19,5 +19,7 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Lint
         run: python -m ruff check src tests
+      - name: GUI import smoke test
+        run: python -c "import iterduca.app"
       - name: Test
         run: python -m pytest
