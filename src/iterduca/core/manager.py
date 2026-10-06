@@ -19,6 +19,24 @@ class CoreManager:
     def running(self) -> bool:
         return self._process is not None and self._process.poll() is None
 
+    def version(self, executable: Path, timeout: float = 5.0) -> str:
+        executable = executable.expanduser().resolve()
+        if not executable.is_file():
+            raise FileNotFoundError(executable)
+        result = subprocess.run(
+            [str(executable), "-v"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            creationflags=self._creation_flags(),
+        )
+        if result.returncode != 0:
+            output = (result.stdout + "\n" + result.stderr).strip()
+            raise RuntimeError(output or "Unable to read Mihomo version")
+        return result.stdout.strip() or result.stderr.strip()
+
     def validate(self, executable: Path, config: Path, home: Path, timeout: float = 10.0) -> None:
         executable = executable.expanduser().resolve()
         if not executable.is_file():
