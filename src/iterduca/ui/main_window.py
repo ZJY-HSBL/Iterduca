@@ -27,12 +27,14 @@ from iterduca.core.manager import CoreManager
 from iterduca.core.runtime_config import RuntimeConfigBuilder
 from iterduca.core.traffic import TrafficMonitor
 from iterduca.paths import AppPaths
+from iterduca.services.override_service import OverrideService
 from iterduca.services.profile_service import ProfileService
 from iterduca.services.settings_service import SettingsService
 from iterduca.services.subscription_service import SubscriptionService
 from iterduca.system.proxy import SystemProxy
 from iterduca.ui.pages.connections import ConnectionsPage
 from iterduca.ui.pages.logs import LogsPage
+from iterduca.ui.pages.overrides import OverridesPage
 from iterduca.ui.pages.overview import OverviewPage
 from iterduca.ui.pages.profiles import ProfilesPage
 from iterduca.ui.pages.proxies import ProxiesPage
@@ -57,6 +59,7 @@ class MainWindow(QMainWindow):
         self.subscription_service = SubscriptionService(
             paths.profiles, paths.subscriptions_file
         )
+        self.override_service = OverrideService(paths.override_file)
         self.settings = self.settings_service.load()
         self.runtime_builder = RuntimeConfigBuilder(paths.runtime)
         self.bridge = UiBridge()
@@ -77,6 +80,7 @@ class MainWindow(QMainWindow):
         self._refresh_profiles()
         self.settings_page.load_settings(self.settings)
         self.overview.set_mode(self.settings.mode)
+        self._load_overrides()
         self._build_health_timer()
 
     def _build_ui(self) -> None:
@@ -100,6 +104,7 @@ class MainWindow(QMainWindow):
         self.profiles = ProfilesPage()
         self.connections = ConnectionsPage()
         self.rules = RulesPage()
+        self.overrides = OverridesPage()
         self.logs = LogsPage()
         self.settings_page = SettingsPage()
         pages = [
@@ -108,6 +113,7 @@ class MainWindow(QMainWindow):
             ("Profiles", self.profiles),
             ("Connections", self.connections),
             ("Rules", self.rules),
+            ("Overrides", self.overrides),
             ("Logs", self.logs),
             ("Settings", self.settings_page),
         ]
@@ -145,6 +151,8 @@ class MainWindow(QMainWindow):
         self.connections.close_selected_requested.connect(self._close_connection)
         self.connections.close_all_requested.connect(self._close_all_connections)
         self.rules.refresh_requested.connect(self._refresh_rules)
+        self.overrides.save_requested.connect(self._save_overrides)
+        self.overrides.reload_requested.connect(self._load_overrides)
         self.bridge.log.connect(self.logs.append)
         self.bridge.traffic.connect(self.overview.set_traffic)
         self.bridge.latency.connect(self.proxies.set_delay)
@@ -228,6 +236,7 @@ class MainWindow(QMainWindow):
                 controller_host="127.0.0.1",
                 controller_port=self.settings.controller_port,
                 mode=self.settings.mode,
+                overrides=self.override_service.load(),
             )
             self._controller_secret = runtime.secret
             self.core.start(executable, runtime.path, self.paths.runtime)
@@ -429,6 +438,21 @@ class MainWindow(QMainWindow):
             self.settings.active_profile,
             subscription_names,
         )
+
+    def _load_overrides(self) -> None:
+        try:
+            self.overrides.set_text(self.override_service.load_text())
+        except Exception as exc:
+            self.overrides.set_text("# Invalid override file\n")
+            self.logs.append(f"[overrides] {exc}")
+
+    def _save_overrides(self, text: str) -> None:
+        try:
+            self.override_service.save_text(text)
+            self._load_overrides()
+            self.logs.append("[overrides] Saved. Restart the core to apply changes.")
+        except Exception as exc:
+            QMessageBox.warning(self, "Invalid overrides", str(exc))
 
     def _save_settings(self, values: object) -> None:
         if not isinstance(values, dict):
