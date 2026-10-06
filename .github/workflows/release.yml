@@ -37,6 +37,15 @@ jobs:
           python -m pip install .
           python -m pip install pyinstaller
 
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          $expected = "v$version"
+          if ($env:RELEASE_TAG -ne $expected) {
+            throw "Release tag $env:RELEASE_TAG does not match project version $expected"
+          }
+
       - name: Build Windows executable
         run: >
           pyinstaller
@@ -60,6 +69,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
           name: Iterduca ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           body: |
