@@ -96,18 +96,29 @@ class MainWindow(QMainWindow):
         self.runtime_builder = RuntimeConfigBuilder(paths.runtime)
         self.bridge = UiBridge()
         self.core = CoreManager(self.bridge.log.emit)
-        self.system_proxy = SystemProxy()
+        self.system_proxy = SystemProxy(paths.proxy_state_file)
         self.api: MihomoApi | None = None
         self.traffic_monitor: TrafficMonitor | None = None
         self._controller_secret = ""
         self._force_quit = False
         self._system_proxy_active = False
 
+        proxy_recovery_message = ""
+        try:
+            if self.system_proxy.recover_stale():
+                proxy_recovery_message = (
+                    "[system-proxy] Restored stale Windows proxy state from a previous crash."
+                )
+        except OSError as exc:
+            proxy_recovery_message = f"[system-proxy] Recovery check failed: {exc}"
+
         self.setWindowTitle("Iterduca")
         self.resize(1080, 700)
         self.setMinimumSize(900, 580)
         self._build_ui()
         self._restore_recent_logs()
+        if proxy_recovery_message:
+            self._log(proxy_recovery_message)
         self._connect_signals()
         self._build_tray()
         self._refresh_profiles()
