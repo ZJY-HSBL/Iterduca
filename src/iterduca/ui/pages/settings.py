@@ -20,6 +20,8 @@ from iterduca.models.settings import AppSettings
 
 class SettingsPage(QWidget):
     save_requested = pyqtSignal(object)
+    detect_core_requested = pyqtSignal()
+    check_core_requested = pyqtSignal(str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -33,10 +35,22 @@ class SettingsPage(QWidget):
         core_row = QHBoxLayout()
         self.core_path = QLineEdit()
         browse = QPushButton("Browse")
+        detect = QPushButton("Detect")
+        check = QPushButton("Version")
         browse.clicked.connect(self._pick_core)
+        detect.clicked.connect(self.detect_core_requested.emit)
+        check.clicked.connect(
+            lambda: self.check_core_requested.emit(self.core_path.text().strip())
+        )
         core_row.addWidget(self.core_path, 1)
         core_row.addWidget(browse)
+        core_row.addWidget(detect)
+        core_row.addWidget(check)
         form.addRow("Mihomo executable", core_row)
+
+        self.core_status = QLabel("Core version not checked")
+        self.core_status.setObjectName("Muted")
+        form.addRow("Core status", self.core_status)
 
         self.mixed_port = QSpinBox()
         self.mixed_port.setRange(1024, 65535)
@@ -71,6 +85,12 @@ class SettingsPage(QWidget):
         self.mode.setCurrentIndex(max(0, index))
         self.system_proxy.setChecked(settings.system_proxy_enabled)
         self.startup.setChecked(settings.startup_enabled)
+
+    def set_core_status(self, text: str) -> None:
+        self.core_status.setText(text)
+
+    def set_core_path(self, path: str) -> None:
+        self.core_path.setText(path)
 
     def _pick_core(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Select Mihomo executable")
