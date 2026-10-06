@@ -4,7 +4,7 @@
 
 Iterduca 是一款 Windows 优先的桌面代理与网络路由客户端，使用 Python + PyQt6 开发，以 Mihomo 作为外部路由核心。项目将桌面界面、配置管理、运行时配置、系统网络集成和核心进程生命周期明确分层，而不是把所有逻辑直接堆在 UI 事件中。
 
-> 当前版本：**v0.8.0**
+> 当前版本：**v0.9.0**
 
 [English README](README.md)
 
@@ -14,7 +14,7 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 
 **Iterduca** 的命名取自“引导旅程”的拉丁语意象：让每一次连接沿合适的路径抵达目标。
 
-## v0.8.0 已实现
+## v0.9.0 已实现
 
 - PyQt6 桌面客户端与深色界面
 - YAML 配置导入与本地管理
@@ -48,6 +48,12 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 - 支持当前 Mihomo 会话内临时启用/禁用单条规则
 - DNS Query 支持 A / AAAA / CNAME / MX / TXT 查询
 - Tools 中以结构化格式展示 DNS 返回结果
+- 应用与 Core 日志持久化保存并自动轮转
+- 程序重启后 Logs 页面恢复最近持久日志
+- 支持日志导出与清空持久日志
+- Connections 可查看选中连接的完整 Controller 原始详情
+- Rules 可查看选中规则的完整 Controller 原始详情
+- 基于 GitHub Releases 的只读更新检查与语义版本比较
 - 基于 Controller WebSocket 的实时上传/下载速率
 - Mihomo 标准输出日志查看
 - Windows WinINet 系统代理开启与恢复

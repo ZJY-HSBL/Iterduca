@@ -4,6 +4,24 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [0.9.0] - 2026-10-07
+
+### Added
+
+- Persistent rotating application and Mihomo runtime logs.
+- Restore of recent persisted log lines into the Logs page after restart.
+- Log export and persistent-log clearing controls.
+- Full raw Controller payload detail panel for Connections.
+- Full raw Controller payload detail panel for Rules.
+- Read-only GitHub Releases update checker with semantic-version comparison.
+- Regression coverage for log rotation/export/tail and release-version checks.
+
+### Changed
+
+- All internal Iterduca log events now flow through one UI + persistent-log sink.
+- Update checking does not download or execute release assets.
+- Version metadata and bilingual documentation updated for v0.9.0.
+
 ## [0.8.0] - 2026-10-07
 
 ### Added
