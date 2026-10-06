@@ -56,6 +56,9 @@ class SubscriptionService:
         self._save_info(info)
         return info
 
+    def update_all(self) -> list[SubscriptionInfo]:
+        return [self.update(item.profile_name) for item in self.list()]
+
     def update(self, profile_name: str) -> SubscriptionInfo:
         data = self._load_metadata()
         item = data.get(profile_name)
