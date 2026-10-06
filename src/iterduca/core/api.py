@@ -85,6 +85,32 @@ class MihomoApi:
             return []
         return [item for item in rules if isinstance(item, dict)]
 
+    def proxy_providers(self) -> dict[str, dict]:
+        payload = self._json("GET", "/providers/proxies")
+        providers = payload.get("providers", {})
+        if not isinstance(providers, dict):
+            return {}
+        return {
+            str(name): item
+            for name, item in providers.items()
+            if isinstance(item, dict)
+        }
+
+    def update_proxy_provider(self, name: str) -> None:
+        self._request("PUT", f"/providers/proxies/{quote(name, safe='')}")
+
+    def healthcheck_proxy_provider(self, name: str) -> None:
+        self._request(
+            "GET",
+            f"/providers/proxies/{quote(name, safe='')}/healthcheck",
+        )
+
+    def flush_dns_cache(self) -> None:
+        self._request("POST", "/cache/dns/flush")
+
+    def flush_fakeip_cache(self) -> None:
+        self._request("POST", "/cache/fakeip/flush")
+
     def rule_providers(self) -> dict[str, dict]:
         payload = self._json("GET", "/providers/rules")
         providers = payload.get("providers", {})
