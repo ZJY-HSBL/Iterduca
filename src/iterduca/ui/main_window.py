@@ -61,6 +61,8 @@ class UiBridge(QObject):
     rule_provider_error = pyqtSignal(str)
     proxy_provider_updated = pyqtSignal(str)
     proxy_provider_error = pyqtSignal(str)
+    dns_result = pyqtSignal(object)
+    dns_error = pyqtSignal(str)
 
 
 class MainWindow(QMainWindow):
@@ -197,6 +199,7 @@ class MainWindow(QMainWindow):
         self.connections.close_selected_requested.connect(self._close_connection)
         self.connections.close_all_requested.connect(self._close_all_connections)
         self.rules.refresh_requested.connect(self._refresh_rules)
+        self.rules.toggle_requested.connect(self._toggle_rule)
         self.rule_providers.refresh_requested.connect(self._refresh_rule_providers)
         self.rule_providers.update_requested.connect(self._update_rule_provider)
         self.rule_providers.update_all_requested.connect(
@@ -209,6 +212,7 @@ class MainWindow(QMainWindow):
         self.tun.recover_requested.connect(self._recover_standard_mode)
         self.tools.flush_dns_requested.connect(self._flush_dns_cache)
         self.tools.flush_fakeip_requested.connect(self._flush_fakeip_cache)
+        self.tools.dns_query_requested.connect(self._dns_query)
         self.bridge.log.connect(self.logs.append)
         self.bridge.traffic.connect(self.overview.set_traffic)
         self.bridge.latency.connect(self.proxies.set_delay)
@@ -219,6 +223,10 @@ class MainWindow(QMainWindow):
         self.bridge.rule_provider_error.connect(self._on_rule_provider_error)
         self.bridge.proxy_provider_updated.connect(self._on_proxy_provider_updated)
         self.bridge.proxy_provider_error.connect(self._on_proxy_provider_error)
+        self.bridge.dns_result.connect(self.tools.set_dns_result)
+        self.bridge.dns_error.connect(
+            lambda message: self.tools.set_dns_result(f"DNS query failed: {message}")
+        )
 
     def _build_health_timer(self) -> None:
         self._connection_refresh_tick = 0
@@ -550,6 +558,25 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.warning(self, "Fake-IP cache", str(exc))
 
+    def _dns_query(self, name: str, record_type: str) -> None:
+        if not self.api:
+            self.tools.set_dns_result("Start the Mihomo core before running DNS Query.")
+            return
+
+        base = f"http://127.0.0.1:{self.settings.controller_port}"
+        secret = self._controller_secret
+
+        def worker() -> None:
+            client = MihomoApi(base, secret, timeout=5.0)
+            try:
+                self.bridge.dns_result.emit(client.dns_query(name, record_type))
+            except Exception as exc:
+                self.bridge.dns_error.emit(str(exc))
+            finally:
+                client.close()
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _refresh_connections(self) -> None:
         if not self.api:
             self.connections.set_connections({})
@@ -585,6 +612,17 @@ class MainWindow(QMainWindow):
             self.rules.set_rules(self.api.rules())
         except Exception as exc:
             self.logs.append(f"[rules] {exc}")
+
+    def _toggle_rule(self, index: int, disabled: bool) -> None:
+        if not self.api:
+            return
+        try:
+            self.api.set_rule_disabled(index, disabled)
+            self._refresh_rules()
+            state = "disabled" if disabled else "enabled"
+            self.logs.append(f"[rules] Rule {index} {state} for this core session.")
+        except Exception as exc:
+            QMessageBox.warning(self, "Rule update failed", str(exc))
 
     def _refresh_rule_providers(self) -> None:
         if not self.api:
