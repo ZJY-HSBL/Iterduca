@@ -14,6 +14,7 @@ class AppPaths:
     runtime: Path
     logs: Path
     settings_file: Path
+    subscriptions_file: Path
 
     @classmethod
     def discover(cls) -> "AppPaths":
@@ -28,6 +29,7 @@ class AppPaths:
             runtime=root / "runtime",
             logs=root / "logs",
             settings_file=root / "settings.json",
+            subscriptions_file=root / "subscriptions.json",
         )
 
     def ensure(self) -> None:
