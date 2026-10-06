@@ -4,6 +4,24 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [0.3.0] - 2026-10-07
+
+### Added
+
+- Runtime YAML override editor with persistent local storage.
+- Recursive deep-merge for nested Mihomo configuration sections.
+- Protected application-owned runtime keys for Controller address, secret, mode, and mixed port.
+- Full proxy-group latency testing with bounded background concurrency.
+- Bulk update for all registered subscriptions.
+- Automatic connection refresh while the Connections page is visible.
+- Regression coverage for override precedence and bulk subscription updates.
+
+### Changed
+
+- Runtime configuration generation now applies user overrides before Iterduca-owned safety values.
+- Profiles and Proxies pages gained bulk workflow controls.
+- Version metadata and bilingual documentation updated for v0.3.0.
+
 ## [0.2.0] - 2026-10-07
 
 ### Added
