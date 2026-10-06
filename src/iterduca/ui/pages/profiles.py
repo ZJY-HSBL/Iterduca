@@ -21,6 +21,7 @@ class ProfilesPage(QWidget):
     subscription_add_requested = pyqtSignal(str)
     subscription_update_requested = pyqtSignal(str)
     subscription_update_all_requested = pyqtSignal()
+    delete_requested = pyqtSignal(str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -55,17 +56,21 @@ class ProfilesPage(QWidget):
         self.import_button = QPushButton("Import YAML")
         self.update_button = QPushButton("Update subscription")
         self.update_all_button = QPushButton("Update all")
+        self.delete_button = QPushButton("Delete selected")
+        self.delete_button.setObjectName("DangerButton")
         self.use_button = QPushButton("Use selected")
         self.use_button.setObjectName("PrimaryButton")
         actions.addWidget(self.import_button)
         actions.addWidget(self.update_button)
         actions.addWidget(self.update_all_button)
+        actions.addWidget(self.delete_button)
         actions.addWidget(self.use_button)
         layout.addLayout(actions)
 
         self.import_button.clicked.connect(self._pick_file)
         self.update_button.clicked.connect(self._update_subscription)
         self.update_all_button.clicked.connect(self.subscription_update_all_requested.emit)
+        self.delete_button.clicked.connect(self._delete_selected)
         self.use_button.clicked.connect(self._activate)
         self._profiles: list[ProfileInfo] = []
         self._subscription_names: set[str] = set()
@@ -112,3 +117,9 @@ class ProfilesPage(QWidget):
         row = self.list.currentRow()
         if 0 <= row < len(self._profiles):
             self.subscription_update_requested.emit(self._profiles[row].name)
+
+
+    def _delete_selected(self) -> None:
+        row = self.list.currentRow()
+        if 0 <= row < len(self._profiles):
+            self.delete_requested.emit(self._profiles[row].name)
