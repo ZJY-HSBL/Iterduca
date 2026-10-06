@@ -85,6 +85,20 @@ class MihomoApi:
             return []
         return [item for item in rules if isinstance(item, dict)]
 
+    def set_rule_disabled(self, index: int, disabled: bool) -> None:
+        self._request(
+            "PATCH",
+            "/rules/disable",
+            json={str(int(index)): bool(disabled)},
+        )
+
+    def dns_query(self, name: str, record_type: str = "A") -> dict:
+        return self._json(
+            "GET",
+            "/dns/query",
+            params={"name": name, "type": record_type},
+        )
+
     def proxy_providers(self) -> dict[str, dict]:
         payload = self._json("GET", "/providers/proxies")
         providers = payload.get("providers", {})
