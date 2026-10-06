@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from iterduca.services.override_service import deep_merge
+
 
 @dataclass(frozen=True, slots=True)
 class RuntimeConfig:
@@ -29,10 +31,14 @@ class RuntimeConfigBuilder:
         controller_port: int,
         mode: str,
         secret: str | None = None,
+        overrides: dict | None = None,
     ) -> RuntimeConfig:
         data = yaml.safe_load(source.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise ValueError("Profile root must be a YAML mapping")
+
+        if overrides:
+            data = deep_merge(data, overrides)
 
         token = secret or secrets.token_urlsafe(24)
         data["mixed-port"] = int(mixed_port)
