@@ -46,7 +46,11 @@ class MihomoApi:
                     name=name,
                     kind=str(item.get("type", "")),
                     now=str(item.get("now", "")),
-                    all=tuple(str(value) for value in candidates) if isinstance(candidates, list) else (),
+                    all=(
+                        tuple(str(value) for value in candidates)
+                        if isinstance(candidates, list)
+                        else ()
+                    ),
                 )
             )
         return groups
@@ -55,7 +59,12 @@ class MihomoApi:
         path = f"/proxies/{quote(group, safe='')}"
         self._request("PUT", path, json={"name": proxy})
 
-    def delay(self, proxy: str, url: str = "https://www.gstatic.com/generate_204", timeout_ms: int = 5000) -> int:
+    def delay(
+        self,
+        proxy: str,
+        url: str = "https://www.gstatic.com/generate_204",
+        timeout_ms: int = 5000,
+    ) -> int:
         path = f"/proxies/{quote(proxy, safe='')}/delay"
         response = self._json("GET", path, params={"url": url, "timeout": timeout_ms})
         return int(response["delay"])

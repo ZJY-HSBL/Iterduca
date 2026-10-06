@@ -14,7 +14,13 @@ ErrorCallback = Callable[[str], None]
 class TrafficMonitor:
     """Consume Mihomo's /traffic WebSocket on a daemon thread."""
 
-    def __init__(self, url: str, secret: str, callback: TrafficCallback, error_callback: ErrorCallback | None = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        secret: str,
+        callback: TrafficCallback,
+        error_callback: ErrorCallback | None = None,
+    ) -> None:
         self.url = url
         self.secret = secret
         self.callback = callback
