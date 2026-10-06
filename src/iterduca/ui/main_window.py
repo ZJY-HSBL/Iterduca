@@ -30,7 +30,9 @@ from iterduca.core.manager import CoreManager
 from iterduca.core.runtime_config import RuntimeConfigBuilder
 from iterduca.core.traffic import TrafficMonitor
 from iterduca.paths import AppPaths
+from iterduca.services.backup_service import BackupService
 from iterduca.services.core_locator import CoreLocator
+from iterduca.services.diagnostics_service import DiagnosticsService
 from iterduca.services.log_service import LogService
 from iterduca.services.override_service import OverrideService
 from iterduca.services.profile_service import ProfileService
@@ -82,6 +84,8 @@ class MainWindow(QMainWindow):
         )
         self.override_service = OverrideService(paths.override_file)
         self.log_service = LogService(paths.logs)
+        self.backup_service = BackupService(paths)
+        self.diagnostics_service = DiagnosticsService(paths)
         self.update_service = UpdateService("ZJY-HSBL/Iterduca", APP_VERSION)
         self.settings = self.settings_service.load()
         self.core_locator = CoreLocator()
@@ -234,6 +238,9 @@ class MainWindow(QMainWindow):
         self.tools.flush_fakeip_requested.connect(self._flush_fakeip_cache)
         self.tools.dns_query_requested.connect(self._dns_query)
         self.tools.check_update_requested.connect(self._check_for_updates)
+        self.tools.export_backup_requested.connect(self._export_backup)
+        self.tools.restore_backup_requested.connect(self._restore_backup)
+        self.tools.export_diagnostics_requested.connect(self._export_diagnostics)
         self.logs.export_requested.connect(self._export_logs)
         self.logs.clear_requested.connect(self._clear_logs)
         self.bridge.log.connect(self._log)
@@ -310,6 +317,87 @@ class MainWindow(QMainWindow):
     def _on_update_error(self, message: str) -> None:
         self.tools.set_update_status(f"Update check failed: {message}")
         self._log(f"[update] {message}")
+
+    def _export_backup(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Iterduca backup",
+            "Iterduca-backup.zip",
+            "ZIP archives (*.zip)",
+        )
+        if not path:
+            return
+        try:
+            self.backup_service.export(Path(path))
+            QMessageBox.information(
+                self,
+                "Backup",
+                "Backup exported. Keep it private because Profile files may contain "
+                "proxy credentials.",
+            )
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, "Backup", str(exc))
+
+    def _restore_backup(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Restore Iterduca backup",
+            "",
+            "ZIP archives (*.zip)",
+        )
+        if not path:
+            return
+
+        answer = QMessageBox.question(
+            self,
+            "Restore backup",
+            "Restore this backup? Current local Profiles and configuration files "
+            "will be replaced.",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            self.stop_core()
+            self.backup_service.restore(Path(path))
+            self.settings = self.settings_service.load()
+
+            if self.startup_service.supported:
+                self.startup_service.set_enabled(self.settings.startup_enabled)
+
+            self.settings_page.load_settings(self.settings)
+            self.overview.set_mode(self.settings.mode)
+            self._refresh_profiles()
+            self._load_overrides()
+            self._refresh_tun_status()
+            self._log("[backup] Configuration backup restored.")
+            QMessageBox.information(
+                self,
+                "Restore backup",
+                "Backup restored successfully.",
+            )
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, "Restore backup", str(exc))
+
+    def _export_diagnostics(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export diagnostics",
+            "Iterduca-diagnostics.zip",
+            "ZIP archives (*.zip)",
+        )
+        if not path:
+            return
+        try:
+            self.diagnostics_service.export(Path(path), self.settings)
+            QMessageBox.information(
+                self,
+                "Diagnostics",
+                "Diagnostics exported without Profiles, subscription URLs, "
+                "runtime configuration, or controller secrets.",
+            )
+        except OSError as exc:
+            QMessageBox.warning(self, "Diagnostics", str(exc))
 
     def _build_health_timer(self) -> None:
         self._connection_refresh_tick = 0
