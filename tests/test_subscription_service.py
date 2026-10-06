@@ -69,3 +69,21 @@ def test_update_all_refreshes_every_registered_subscription(
     }
     assert "name: A2" in (tmp_path / "profiles" / first.profile_name).read_text(encoding="utf-8")
     assert "name: B2" in (tmp_path / "profiles" / second.profile_name).read_text(encoding="utf-8")
+
+
+def test_forget_subscription_removes_only_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse("proxies:\n  - {name: A, type: direct}\n"),
+    )
+    service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
+    info = service.add("https://example.com/a.yaml")
+    profile = tmp_path / "profiles" / info.profile_name
+
+    service.forget(info.profile_name)
+
+    assert service.list() == []
+    assert profile.exists()
