@@ -20,6 +20,9 @@ class ToolsPage(QWidget):
     flush_fakeip_requested = pyqtSignal()
     dns_query_requested = pyqtSignal(str, str)
     check_update_requested = pyqtSignal()
+    export_backup_requested = pyqtSignal()
+    restore_backup_requested = pyqtSignal()
+    export_diagnostics_requested = pyqtSignal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -75,6 +78,28 @@ class ToolsPage(QWidget):
         update_row.addWidget(check_update)
         update_row.addWidget(self.update_status, 1)
         layout.addLayout(update_row)
+
+        data_hint = QLabel(
+            "Backup archives can contain proxy credentials from Profiles. "
+            "Diagnostics archives intentionally exclude Profiles, subscription URLs, "
+            "runtime configuration, and controller secrets."
+        )
+        data_hint.setObjectName("Muted")
+        data_hint.setWordWrap(True)
+        layout.addWidget(data_hint)
+
+        data_row = QHBoxLayout()
+        export_backup = QPushButton("Export backup")
+        restore_backup = QPushButton("Restore backup")
+        diagnostics = QPushButton("Export diagnostics")
+        export_backup.clicked.connect(self.export_backup_requested.emit)
+        restore_backup.clicked.connect(self.restore_backup_requested.emit)
+        diagnostics.clicked.connect(self.export_diagnostics_requested.emit)
+        data_row.addWidget(export_backup)
+        data_row.addWidget(restore_backup)
+        data_row.addWidget(diagnostics)
+        data_row.addStretch(1)
+        layout.addLayout(data_row)
 
     def set_dns_result(self, payload: object) -> None:
         if isinstance(payload, str):
