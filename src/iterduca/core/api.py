@@ -72,8 +72,16 @@ class MihomoApi:
     def connections(self) -> dict:
         return self._json("GET", "/connections")
 
+    def close_connection(self, connection_id: str) -> None:
+        self._request("DELETE", f"/connections/{quote(connection_id, safe='')}")
+
     def close_all_connections(self) -> None:
         self._request("DELETE", "/connections")
+
+    def rules(self) -> list[dict]:
+        payload = self._json("GET", "/rules")
+        rules = payload.get("rules", [])
+        return [item for item in rules if isinstance(item, dict)] if isinstance(rules, list) else []
 
     def _json(self, method: str, path: str, **kwargs) -> dict:
         response = self._request(method, path, **kwargs)
