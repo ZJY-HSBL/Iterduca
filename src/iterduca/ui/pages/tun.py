@@ -53,7 +53,13 @@ class TunPage(QWidget):
 
         self.stack = QComboBox()
         self.stack.addItems(["mips", "system", "gvisor", "mixed"])
+        self.stack.currentTextChanged.connect(self._update_stack_note)
         form.addRow("Protocol stack", self.stack)
+
+        self.stack_note = QLabel("")
+        self.stack_note.setObjectName("Muted")
+        self.stack_note.setWordWrap(True)
+        form.addRow("", self.stack_note)
 
         self.auto_route = QCheckBox("Let Mihomo manage system routes")
         form.addRow("Auto route", self.auto_route)
@@ -119,6 +125,22 @@ class TunPage(QWidget):
 
         self.elevate.setVisible(not elevated)
         self.recover.setEnabled(settings.tun_enabled or running)
+        self._update_stack_note(self.stack.currentText())
+
+    def _update_stack_note(self, stack: str) -> None:
+        if stack in {"system", "mixed"}:
+            self.stack_note.setText(
+                "Windows Defender Firewall must allow the Mihomo core when using "
+                f"the {stack} stack."
+            )
+        elif stack == "mips":
+            self.stack_note.setText(
+                "MIPS is Mihomo's current default/recommended general-purpose stack."
+            )
+        else:
+            self.stack_note.setText(
+                "gVisor runs the network stack in user space for stronger isolation."
+            )
 
     def _save(self) -> None:
         self.save_requested.emit(
