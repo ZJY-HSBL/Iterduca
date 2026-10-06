@@ -34,6 +34,7 @@ from iterduca.services.backup_service import BackupService
 from iterduca.services.core_locator import CoreLocator
 from iterduca.services.diagnostics_service import DiagnosticsService
 from iterduca.services.log_service import LogService
+from iterduca.services.network_service import find_port_conflicts
 from iterduca.services.override_service import OverrideService
 from iterduca.services.profile_service import ProfileService
 from iterduca.services.settings_service import SettingsService
@@ -494,6 +495,17 @@ class MainWindow(QMainWindow):
                     "TUN mode requires administrator privileges. "
                     "Open the TUN page and restart Iterduca as administrator."
                 )
+            conflicts = find_port_conflicts(
+                "127.0.0.1",
+                [self.settings.mixed_port, self.settings.controller_port],
+            )
+            if conflicts:
+                formatted = ", ".join(str(port) for port in conflicts)
+                raise RuntimeError(
+                    f"Required local port(s) already in use: {formatted}. "
+                    "Change the ports in Settings or stop the conflicting application."
+                )
+
             profile = self.profile_service.resolve(self.settings.active_profile)
             runtime = self.runtime_builder.build(
                 profile,
