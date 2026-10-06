@@ -17,6 +17,7 @@ from iterduca.core.api import ProxyGroup
 class ProxiesPage(QWidget):
     proxy_selected = pyqtSignal(str, str)
     latency_requested = pyqtSignal(str, str)
+    latency_group_requested = pyqtSignal(str, object)
     refresh_requested = pyqtSignal()
 
     def __init__(self) -> None:
@@ -34,8 +35,10 @@ class ProxiesPage(QWidget):
         self.groups = QComboBox()
         self.refresh = QPushButton("Refresh")
         self.test_latency = QPushButton("Test latency")
+        self.test_group = QPushButton("Test group")
         controls.addWidget(self.groups, 1)
         controls.addWidget(self.test_latency)
+        controls.addWidget(self.test_group)
         controls.addWidget(self.refresh)
         layout.addLayout(controls)
 
@@ -49,6 +52,7 @@ class ProxiesPage(QWidget):
         self.groups.currentIndexChanged.connect(self._show_group)
         self.nodes.itemDoubleClicked.connect(self._select_current)
         self.test_latency.clicked.connect(self._test_current)
+        self.test_group.clicked.connect(self._test_group)
         self.refresh.clicked.connect(self.refresh_requested.emit)
 
         self._data: list[ProxyGroup] = []
@@ -97,6 +101,12 @@ class ProxiesPage(QWidget):
         selected = self._current()
         if selected:
             self.latency_requested.emit(*selected)
+
+    def _test_group(self) -> None:
+        index = self.groups.currentIndex()
+        if 0 <= index < len(self._data):
+            group = self._data[index]
+            self.latency_group_requested.emit(group.name, list(group.all))
 
     def _current(self) -> tuple[str, str] | None:
         group_index = self.groups.currentIndex()
