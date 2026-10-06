@@ -81,7 +81,27 @@ class MihomoApi:
     def rules(self) -> list[dict]:
         payload = self._json("GET", "/rules")
         rules = payload.get("rules", [])
-        return [item for item in rules if isinstance(item, dict)] if isinstance(rules, list) else []
+        if not isinstance(rules, list):
+            return []
+        return [item for item in rules if isinstance(item, dict)]
+
+    def rule_providers(self) -> dict[str, dict]:
+        payload = self._json("GET", "/providers/rules")
+        providers = payload.get("providers", {})
+        if not isinstance(providers, dict):
+            return {}
+        return {
+            str(name): item
+            for name, item in providers.items()
+            if isinstance(item, dict)
+        }
+
+    def update_rule_provider(self, name: str) -> None:
+        self._request("PUT", f"/providers/rules/{quote(name, safe='')}")
+
+    def memory(self) -> int:
+        payload = self._json("GET", "/memory")
+        return int(payload.get("inuse", 0))
 
     def _json(self, method: str, path: str, **kwargs) -> dict:
         response = self._request(method, path, **kwargs)
