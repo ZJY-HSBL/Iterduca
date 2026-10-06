@@ -32,6 +32,7 @@ from iterduca.services.override_service import OverrideService
 from iterduca.services.profile_service import ProfileService
 from iterduca.services.settings_service import SettingsService
 from iterduca.services.subscription_service import SubscriptionService
+from iterduca.system.privilege import is_elevated, relaunch_elevated
 from iterduca.system.proxy import SystemProxy
 from iterduca.ui.pages.connections import ConnectionsPage
 from iterduca.ui.pages.logs import LogsPage
@@ -41,6 +42,7 @@ from iterduca.ui.pages.profiles import ProfilesPage
 from iterduca.ui.pages.proxies import ProxiesPage
 from iterduca.ui.pages.rules import RulesPage
 from iterduca.ui.pages.settings import SettingsPage
+from iterduca.ui.pages.tun import TunPage
 
 
 class UiBridge(QObject):
@@ -82,6 +84,7 @@ class MainWindow(QMainWindow):
         self.settings_page.load_settings(self.settings)
         self.overview.set_mode(self.settings.mode)
         self._load_overrides()
+        self._refresh_tun_status()
         self._build_health_timer()
 
     def _build_ui(self) -> None:
@@ -106,6 +109,7 @@ class MainWindow(QMainWindow):
         self.connections = ConnectionsPage()
         self.rules = RulesPage()
         self.overrides = OverridesPage()
+        self.tun = TunPage()
         self.logs = LogsPage()
         self.settings_page = SettingsPage()
         pages = [
@@ -115,6 +119,7 @@ class MainWindow(QMainWindow):
             ("Connections", self.connections),
             ("Rules", self.rules),
             ("Overrides", self.overrides),
+            ("TUN", self.tun),
             ("Logs", self.logs),
             ("Settings", self.settings_page),
         ]
@@ -158,6 +163,9 @@ class MainWindow(QMainWindow):
         self.rules.refresh_requested.connect(self._refresh_rules)
         self.overrides.save_requested.connect(self._save_overrides)
         self.overrides.reload_requested.connect(self._load_overrides)
+        self.tun.save_requested.connect(self._save_tun)
+        self.tun.elevate_requested.connect(self._elevate)
+        self.tun.recover_requested.connect(self._recover_standard_mode)
         self.bridge.log.connect(self.logs.append)
         self.bridge.traffic.connect(self.overview.set_traffic)
         self.bridge.latency.connect(self.proxies.set_delay)
@@ -244,6 +252,11 @@ class MainWindow(QMainWindow):
                 raise RuntimeError("Select the Mihomo executable in Settings first.")
             if not self.settings.active_profile:
                 raise RuntimeError("Import and activate a profile first.")
+            if self.settings.tun_enabled and not is_elevated():
+                raise RuntimeError(
+                    "TUN mode requires administrator privileges. "
+                    "Open the TUN page and restart Iterduca as administrator."
+                )
             profile = self.profile_service.resolve(self.settings.active_profile)
             runtime = self.runtime_builder.build(
                 profile,
@@ -252,11 +265,13 @@ class MainWindow(QMainWindow):
                 controller_port=self.settings.controller_port,
                 mode=self.settings.mode,
                 overrides=self.override_service.load(),
+                tun=self.settings.tun_config(),
             )
             self._controller_secret = runtime.secret
+            self.core.validate(executable, runtime.path, self.paths.runtime)
             self.core.start(executable, runtime.path, self.paths.runtime)
             self._wait_for_controller()
-            if self.settings.system_proxy_enabled:
+            if self.settings.system_proxy_enabled and not self.settings.tun_enabled:
                 self.system_proxy.enable("127.0.0.1", self.settings.mixed_port)
                 self._system_proxy_active = True
             self._start_traffic()
@@ -268,6 +283,7 @@ class MainWindow(QMainWindow):
                 f"{self.settings.mode.upper()}"
             )
             self.overview.set_running(True, detail)
+            self._refresh_tun_status()
         except Exception as exc:
             self.stop_core()
             self.overview.set_running(False, str(exc))
@@ -288,6 +304,7 @@ class MainWindow(QMainWindow):
         self.rules.set_rules([])
         self.overview.set_traffic(0, 0)
         self.overview.set_running(False)
+        self._refresh_tun_status()
 
     def _wait_for_controller(self) -> None:
         base = f"http://127.0.0.1:{self.settings.controller_port}"
@@ -510,6 +527,65 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.warning(self, "Invalid overrides", str(exc))
 
+    def _refresh_tun_status(self) -> None:
+        self.tun.load_settings(
+            self.settings,
+            elevated=is_elevated(),
+            running=self.core.running,
+        )
+
+    def _save_tun(self, values: object) -> None:
+        if not isinstance(values, dict):
+            return
+        was_enabled = self.settings.tun_enabled
+        self.settings.tun_enabled = bool(values["tun_enabled"])
+        self.settings.tun_stack = str(values["tun_stack"])
+        self.settings.tun_auto_route = bool(values["tun_auto_route"])
+        self.settings.tun_auto_detect_interface = bool(
+            values["tun_auto_detect_interface"]
+        )
+        self.settings.tun_dns_hijack = bool(values["tun_dns_hijack"])
+        self.settings.tun_strict_route = bool(values["tun_strict_route"])
+        self.settings_service.save(self.settings)
+        self._refresh_tun_status()
+
+        if self.core.running and was_enabled != self.settings.tun_enabled:
+            self.logs.append("[tun] TUN mode change will apply after core restart.")
+        if self.settings.tun_enabled and not is_elevated():
+            QMessageBox.information(
+                self,
+                "TUN saved",
+                "TUN is enabled for the next start. Restart Iterduca as "
+                "administrator before starting the core.",
+            )
+        else:
+            QMessageBox.information(self, "TUN", "TUN settings saved.")
+
+    def _elevate(self) -> None:
+        if is_elevated():
+            self._refresh_tun_status()
+            return
+        if not relaunch_elevated():
+            QMessageBox.warning(
+                self,
+                "Elevation failed",
+                "Windows did not start an elevated Iterduca process.",
+            )
+            return
+        self._force_quit = True
+        self.stop_core()
+        self.tray.hide()
+        QApplication.quit()
+
+    def _recover_standard_mode(self) -> None:
+        self.stop_core()
+        self.settings.tun_enabled = False
+        self.settings_service.save(self.settings)
+        self._refresh_tun_status()
+        self.logs.append(
+            "[tun] TUN disabled. Iterduca returned to standard proxy mode."
+        )
+
     def _save_settings(self, values: object) -> None:
         if not isinstance(values, dict):
             return
@@ -518,7 +594,11 @@ class MainWindow(QMainWindow):
         self.settings.controller_port = int(values["controller_port"])
         self.settings.mode = str(values["mode"])
         requested_proxy = bool(values["system_proxy_enabled"])
-        if self.core.running and requested_proxy != self._system_proxy_active:
+        if self.core.running and self.settings.tun_enabled:
+            if self._system_proxy_active:
+                self.system_proxy.disable()
+                self._system_proxy_active = False
+        elif self.core.running and requested_proxy != self._system_proxy_active:
             if requested_proxy:
                 self.system_proxy.enable("127.0.0.1", self.settings.mixed_port)
                 self._system_proxy_active = True
