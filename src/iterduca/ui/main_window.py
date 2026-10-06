@@ -28,6 +28,7 @@ from iterduca.core.manager import CoreManager
 from iterduca.core.runtime_config import RuntimeConfigBuilder
 from iterduca.core.traffic import TrafficMonitor
 from iterduca.paths import AppPaths
+from iterduca.services.core_locator import CoreLocator
 from iterduca.services.override_service import OverrideService
 from iterduca.services.profile_service import ProfileService
 from iterduca.services.settings_service import SettingsService
@@ -65,6 +66,12 @@ class MainWindow(QMainWindow):
         )
         self.override_service = OverrideService(paths.override_file)
         self.settings = self.settings_service.load()
+        self.core_locator = CoreLocator()
+        if not self.settings.core_path:
+            discovered_core = self.core_locator.discover()
+            if discovered_core is not None:
+                self.settings.core_path = str(discovered_core)
+                self.settings_service.save(self.settings)
         self.startup_service = StartupService()
         if self.startup_service.supported:
             self.settings.startup_enabled = self.startup_service.is_enabled()
@@ -157,6 +164,8 @@ class MainWindow(QMainWindow):
             self._update_all_subscriptions
         )
         self.settings_page.save_requested.connect(self._save_settings)
+        self.settings_page.detect_core_requested.connect(self._detect_core)
+        self.settings_page.check_core_requested.connect(self._check_core_version)
         self.proxies.refresh_requested.connect(self._refresh_proxies)
         self.proxies.proxy_selected.connect(self._select_proxy)
         self.proxies.latency_requested.connect(self._test_latency)
@@ -530,6 +539,26 @@ class MainWindow(QMainWindow):
             self.logs.append("[overrides] Saved. Restart the core to apply changes.")
         except Exception as exc:
             QMessageBox.warning(self, "Invalid overrides", str(exc))
+
+    def _detect_core(self) -> None:
+        discovered = self.core_locator.discover()
+        if discovered is None:
+            self.settings_page.set_core_status("Mihomo core was not found.")
+            return
+        self.settings.core_path = str(discovered)
+        self.settings_service.save(self.settings)
+        self.settings_page.set_core_path(self.settings.core_path)
+        self._check_core_version(self.settings.core_path)
+
+    def _check_core_version(self, path: str) -> None:
+        if not path:
+            self.settings_page.set_core_status("Select a Mihomo executable first.")
+            return
+        try:
+            version = self.core.version(Path(path))
+            self.settings_page.set_core_status(version)
+        except Exception as exc:
+            self.settings_page.set_core_status(f"Version check failed: {exc}")
 
     def _refresh_tun_status(self) -> None:
         self.tun.load_settings(
