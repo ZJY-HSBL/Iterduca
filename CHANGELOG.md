@@ -4,6 +4,23 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [0.2.0] - 2026-10-07
+
+### Added
+
+- Connections page with refresh, per-connection close, and close-all controls.
+- Rules page with type, payload, proxy columns, and local filtering.
+- Subscription URL import and update service with atomic profile replacement.
+- Selected proxy latency testing through the Mihomo Controller.
+- Controller API support for rule retrieval and single-connection deletion.
+- Subscription lifecycle and Controller endpoint regression tests.
+
+### Changed
+
+- Expanded the main navigation for connection and rule management.
+- Profile UI now identifies subscription-backed profiles.
+- Version metadata and bilingual documentation updated for v0.2.0.
+
 ## [0.1.0] - 2026-10-07
 
 ### Added
