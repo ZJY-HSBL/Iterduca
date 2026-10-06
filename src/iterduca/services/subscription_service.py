@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 import httpx
 import yaml
 
+from iterduca.constants import APP_VERSION
+
 
 @dataclass(frozen=True, slots=True)
 class SubscriptionInfo:
@@ -87,7 +89,7 @@ class SubscriptionService:
             url,
             follow_redirects=True,
             timeout=15.0,
-            headers={"User-Agent": "Iterduca/0.2"},
+            headers={"User-Agent": f"Iterduca/{APP_VERSION}"},
         )
         response.raise_for_status()
         content = response.content
