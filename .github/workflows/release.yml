@@ -46,6 +46,9 @@ jobs:
             throw "Release tag $env:RELEASE_TAG does not match project version $expected"
           }
 
+      - name: Generate Windows version metadata
+        run: python scripts/write_version_info.py build/version_info.txt
+
       - name: Build Windows executable
         run: >
           pyinstaller
@@ -54,16 +57,29 @@ jobs:
           --onefile
           --windowed
           --name Iterduca
+          --version-file build/version_info.txt
           --paths src
           src/iterduca/__main__.py
 
-      - name: Package portable release
+      - name: Package Windows release
         shell: pwsh
         run: |
+          $exe = "Iterduca-$env:RELEASE_TAG-windows-x64.exe"
           $archive = "Iterduca-$env:RELEASE_TAG-windows-x64.zip"
-          Compress-Archive -Path "dist/Iterduca.exe" -DestinationPath $archive -Force
-          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
-          "$hash  $archive" | Set-Content -Path "$archive.sha256"
+          $portable = "build/portable"
+
+          New-Item -ItemType Directory -Path $portable -Force | Out-Null
+          Copy-Item "dist/Iterduca.exe" $exe
+          Copy-Item $exe "$portable/Iterduca.exe"
+          Copy-Item "LICENSE" "$portable/LICENSE"
+          Copy-Item "README.md" "$portable/README.md"
+          Copy-Item "README.zh-CN.md" "$portable/README.zh-CN.md"
+          Compress-Archive -Path "$portable/*" -DestinationPath $archive -Force
+
+          $exeHash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          $zipHash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+          "$exeHash  $exe" | Set-Content -Path "SHA256SUMS.txt"
+          "$zipHash  $archive" | Add-Content -Path "SHA256SUMS.txt"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -77,5 +93,6 @@ jobs:
 
             Mihomo is not bundled with Iterduca. Select your Mihomo executable in Settings after launch.
           files: |
+            Iterduca-${{ env.RELEASE_TAG }}-windows-x64.exe
             Iterduca-${{ env.RELEASE_TAG }}-windows-x64.zip
-            Iterduca-${{ env.RELEASE_TAG }}-windows-x64.zip.sha256
+            SHA256SUMS.txt
