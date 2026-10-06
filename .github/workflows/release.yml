@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install application and packager
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
+          python -m pip install pyinstaller
+
+      - name: Build Windows executable
+        run: >
+          pyinstaller
+          --noconfirm
+          --clean
+          --onefile
+          --windowed
+          --name Iterduca
+          --paths src
+          src/iterduca/__main__.py
+
+      - name: Package portable release
+        shell: pwsh
+        run: |
+          $archive = "Iterduca-$env:RELEASE_TAG-windows-x64.zip"
+          Compress-Archive -Path "dist/Iterduca.exe" -DestinationPath $archive -Force
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+          "$hash  $archive" | Set-Content -Path "$archive.sha256"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Iterduca ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          body: |
+            Windows-first desktop proxy and network routing client powered by Mihomo.
+
+            Mihomo is not bundled with Iterduca. Select your Mihomo executable in Settings after launch.
+          files: |
+            Iterduca-${{ env.RELEASE_TAG }}-windows-x64.zip
+            Iterduca-${{ env.RELEASE_TAG }}-windows-x64.zip.sha256
