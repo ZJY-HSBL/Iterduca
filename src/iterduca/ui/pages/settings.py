@@ -52,6 +52,9 @@ class SettingsPage(QWidget):
 
         self.system_proxy = QCheckBox("Enable Windows system proxy while core is running")
         form.addRow("System proxy", self.system_proxy)
+
+        self.startup = QCheckBox("Start Iterduca with Windows")
+        form.addRow("Startup", self.startup)
         layout.addLayout(form)
 
         save = QPushButton("Save settings")
@@ -67,6 +70,7 @@ class SettingsPage(QWidget):
         index = self.mode.findText(settings.mode.lower())
         self.mode.setCurrentIndex(max(0, index))
         self.system_proxy.setChecked(settings.system_proxy_enabled)
+        self.startup.setChecked(settings.startup_enabled)
 
     def _pick_core(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Select Mihomo executable")
@@ -81,5 +85,6 @@ class SettingsPage(QWidget):
                 "controller_port": self.controller_port.value(),
                 "mode": self.mode.currentText(),
                 "system_proxy_enabled": self.system_proxy.isChecked(),
+                "startup_enabled": self.startup.isChecked(),
             }
         )
