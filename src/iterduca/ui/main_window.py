@@ -42,6 +42,7 @@ from iterduca.ui.pages.overrides import OverridesPage
 from iterduca.ui.pages.overview import OverviewPage
 from iterduca.ui.pages.profiles import ProfilesPage
 from iterduca.ui.pages.proxies import ProxiesPage
+from iterduca.ui.pages.rule_providers import RuleProvidersPage
 from iterduca.ui.pages.rules import RulesPage
 from iterduca.ui.pages.settings import SettingsPage
 from iterduca.ui.pages.tun import TunPage
@@ -53,6 +54,9 @@ class UiBridge(QObject):
     latency = pyqtSignal(str, str, int)
     subscription_ready = pyqtSignal(str)
     subscription_error = pyqtSignal(str)
+    memory = pyqtSignal(int)
+    rule_provider_updated = pyqtSignal(str)
+    rule_provider_error = pyqtSignal(str)
 
 
 class MainWindow(QMainWindow):
@@ -119,6 +123,7 @@ class MainWindow(QMainWindow):
         self.profiles = ProfilesPage()
         self.connections = ConnectionsPage()
         self.rules = RulesPage()
+        self.rule_providers = RuleProvidersPage()
         self.overrides = OverridesPage()
         self.tun = TunPage()
         self.logs = LogsPage()
@@ -129,6 +134,7 @@ class MainWindow(QMainWindow):
             ("Profiles", self.profiles),
             ("Connections", self.connections),
             ("Rules", self.rules),
+            ("Rule Providers", self.rule_providers),
             ("Overrides", self.overrides),
             ("TUN", self.tun),
             ("Logs", self.logs),
@@ -163,6 +169,7 @@ class MainWindow(QMainWindow):
         self.profiles.subscription_update_all_requested.connect(
             self._update_all_subscriptions
         )
+        self.profiles.delete_requested.connect(self._delete_profile)
         self.settings_page.save_requested.connect(self._save_settings)
         self.settings_page.detect_core_requested.connect(self._detect_core)
         self.settings_page.check_core_requested.connect(self._check_core_version)
@@ -174,6 +181,11 @@ class MainWindow(QMainWindow):
         self.connections.close_selected_requested.connect(self._close_connection)
         self.connections.close_all_requested.connect(self._close_all_connections)
         self.rules.refresh_requested.connect(self._refresh_rules)
+        self.rule_providers.refresh_requested.connect(self._refresh_rule_providers)
+        self.rule_providers.update_requested.connect(self._update_rule_provider)
+        self.rule_providers.update_all_requested.connect(
+            self._update_all_rule_providers
+        )
         self.overrides.save_requested.connect(self._save_overrides)
         self.overrides.reload_requested.connect(self._load_overrides)
         self.tun.save_requested.connect(self._save_tun)
@@ -184,9 +196,14 @@ class MainWindow(QMainWindow):
         self.bridge.latency.connect(self.proxies.set_delay)
         self.bridge.subscription_ready.connect(self._on_subscription_ready)
         self.bridge.subscription_error.connect(self._on_subscription_error)
+        self.bridge.memory.connect(self.overview.set_memory)
+        self.bridge.rule_provider_updated.connect(self._on_rule_provider_updated)
+        self.bridge.rule_provider_error.connect(self._on_rule_provider_error)
 
     def _build_health_timer(self) -> None:
         self._connection_refresh_tick = 0
+        self._memory_refresh_tick = 0
+        self._memory_request_inflight = False
         self.health_timer = QTimer(self)
         self.health_timer.setInterval(1000)
         self.health_timer.timeout.connect(self._poll_core_state)
@@ -202,6 +219,14 @@ class MainWindow(QMainWindow):
             self.logs.append("[core] Mihomo exited unexpectedly; runtime state restored.")
             self.stop_core()
             return
+
+        if self.api:
+            self._memory_refresh_tick += 1
+            if self._memory_refresh_tick >= 2:
+                self._memory_refresh_tick = 0
+                self._refresh_memory()
+        else:
+            self._memory_refresh_tick = 0
 
         if self.api and self.stack.currentWidget() is self.connections:
             self._connection_refresh_tick += 1
@@ -291,6 +316,8 @@ class MainWindow(QMainWindow):
             self._refresh_proxies()
             self._refresh_connections()
             self._refresh_rules()
+            self._refresh_rule_providers()
+            self._refresh_memory()
             detail = (
                 f"127.0.0.1:{self.settings.mixed_port} · "
                 f"{self.settings.mode.upper()}"
@@ -315,7 +342,9 @@ class MainWindow(QMainWindow):
         self.core.stop()
         self.connections.set_connections({})
         self.rules.set_rules([])
+        self.rule_providers.set_providers({})
         self.overview.set_traffic(0, 0)
+        self.overview.set_memory(0)
         self.overview.set_running(False)
         self._refresh_tun_status()
 
@@ -459,6 +488,76 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self.logs.append(f"[rules] {exc}")
 
+    def _refresh_rule_providers(self) -> None:
+        if not self.api:
+            self.rule_providers.set_providers({})
+            return
+        try:
+            self.rule_providers.set_providers(self.api.rule_providers())
+        except Exception as exc:
+            self.logs.append(f"[rule-providers] {exc}")
+
+    def _update_rule_provider(self, name: str) -> None:
+        self._run_rule_provider_updates([name])
+
+    def _update_all_rule_providers(self, names: object) -> None:
+        if isinstance(names, list):
+            self._run_rule_provider_updates([str(name) for name in names])
+
+    def _run_rule_provider_updates(self, names: list[str]) -> None:
+        if not self.api or not names:
+            return
+        base = f"http://127.0.0.1:{self.settings.controller_port}"
+        secret = self._controller_secret
+
+        def update(name: str) -> tuple[str, str | None]:
+            client = MihomoApi(base, secret, timeout=20.0)
+            try:
+                client.update_rule_provider(name)
+                return name, None
+            except Exception as exc:
+                return name, str(exc)
+            finally:
+                client.close()
+
+        def worker() -> None:
+            with ThreadPoolExecutor(max_workers=min(4, len(names))) as pool:
+                futures = [pool.submit(update, name) for name in names]
+                for future in as_completed(futures):
+                    name, error = future.result()
+                    if error:
+                        self.bridge.rule_provider_error.emit(f"{name}: {error}")
+                    else:
+                        self.bridge.rule_provider_updated.emit(name)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_rule_provider_updated(self, name: str) -> None:
+        self.logs.append(f"[rule-providers] Updated {name}")
+        self._refresh_rule_providers()
+
+    def _on_rule_provider_error(self, message: str) -> None:
+        self.logs.append(f"[rule-providers] {message}")
+
+    def _refresh_memory(self) -> None:
+        if not self.api or self._memory_request_inflight:
+            return
+        self._memory_request_inflight = True
+        base = f"http://127.0.0.1:{self.settings.controller_port}"
+        secret = self._controller_secret
+
+        def worker() -> None:
+            client = MihomoApi(base, secret, timeout=2.0)
+            try:
+                self.bridge.memory.emit(client.memory())
+            except Exception as exc:
+                self.bridge.log.emit(f"[memory] {exc}")
+            finally:
+                client.close()
+                self._memory_request_inflight = False
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _import_profile(self, path: str) -> None:
         try:
             profile = self.profile_service.import_file(Path(path))
@@ -472,6 +571,26 @@ class MainWindow(QMainWindow):
         self.settings.active_profile = filename
         self.settings_service.save(self.settings)
         self._refresh_profiles()
+
+    def _delete_profile(self, filename: str) -> None:
+        answer = QMessageBox.question(
+            self,
+            "Delete profile",
+            f"Delete {filename}? This removes the local profile copy.",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            if filename == self.settings.active_profile:
+                self.stop_core()
+                self.settings.active_profile = ""
+                self.settings_service.save(self.settings)
+            self.profile_service.delete(filename)
+            self.subscription_service.forget(filename)
+            self._refresh_profiles()
+        except Exception as exc:
+            QMessageBox.warning(self, "Delete failed", str(exc))
 
     def _add_subscription(self, url: str) -> None:
         self._run_subscription_task(lambda: self.subscription_service.add(url))
