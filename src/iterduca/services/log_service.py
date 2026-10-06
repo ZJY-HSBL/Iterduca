@@ -28,6 +28,14 @@ class LogService:
             with self.path.open("ab") as handle:
                 handle.write(encoded)
 
+    def tail(self, max_lines: int = 300) -> list[str]:
+        limit = max(1, int(max_lines))
+        with self._lock:
+            if not self.path.exists():
+                return []
+            lines = self.path.read_text(encoding="utf-8", errors="replace").splitlines()
+        return lines[-limit:]
+
     def export(self, destination: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
         with self._lock:
