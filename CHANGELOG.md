@@ -4,6 +4,25 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.0.0] - 2026-10-07
+
+### Added
+
+- Crash-safe Windows system-proxy ownership state persisted to disk.
+- Startup recovery that restores the previous system proxy only when Iterduca still owns the configured proxy and its local endpoint is no longer alive.
+- Safe configuration/Profile backup export and guarded restore with strict archive-member validation.
+- Privacy-conscious diagnostics export that excludes Profiles, subscription URLs, runtime configuration, controller secrets, and raw log contents.
+- Local Mixed Port / Controller Port conflict detection before Mihomo startup.
+- User-facing minimize-to-tray preference.
+- CI validation for `develop/**` branches.
+- Regression coverage for system-proxy recovery decisions, backup restore security, diagnostics privacy, and local port preflight.
+
+### Changed
+
+- UI version display now derives from `APP_VERSION` instead of a hard-coded label.
+- Backup restore reloads Settings, Profiles, Overrides, TUN state, and Windows startup preference after stopping the core.
+- v1.0.0 is the first stable Windows-first baseline release.
+
 ## [0.9.0] - 2026-10-07
 
 ### Added

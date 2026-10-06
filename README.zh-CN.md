@@ -4,7 +4,7 @@
 
 Iterduca 是一款 Windows 优先的桌面代理与网络路由客户端，使用 Python + PyQt6 开发，以 Mihomo 作为外部路由核心。项目将桌面界面、配置管理、运行时配置、系统网络集成和核心进程生命周期明确分层，而不是把所有逻辑直接堆在 UI 事件中。
 
-> 当前版本：**v0.9.0**
+> 当前版本：**v1.0.0**
 
 [English README](README.md)
 
@@ -14,7 +14,7 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 
 **Iterduca** 的命名取自“引导旅程”的拉丁语意象：让每一次连接沿合适的路径抵达目标。
 
-## v0.9.0 已实现
+## v1.0.0 已实现
 
 - PyQt6 桌面客户端与深色界面
 - YAML 配置导入与本地管理
@@ -54,6 +54,12 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 - Connections 可查看选中连接的完整 Controller 原始详情
 - Rules 可查看选中规则的完整 Controller 原始详情
 - 基于 GitHub Releases 的只读更新检查与语义版本比较
+- Windows 系统代理接管状态持久化与崩溃后安全恢复
+- 配置/Profile 备份导出与受控恢复
+- 隐私优先的诊断包：不包含 Profile、订阅 URL、Runtime Config、Controller Secret 或原始日志内容
+- Mihomo 启动前检查 Mixed Port / Controller Port 本地端口冲突
+- Settings 正式提供最小化到系统托盘选项
+- UI 版本号统一由应用版本常量驱动
 - 基于 Controller WebSocket 的实时上传/下载速率
 - Mihomo 标准输出日志查看
 - Windows WinINet 系统代理开启与恢复
@@ -147,11 +153,11 @@ python -m pytest
 python -m ruff check src tests
 ```
 
-## 后续规划
+## 1.0 基线与后续方向
 
-下一阶段计划增加 Connections 连接查看、Rules / Rule Provider 管理、订阅 URL 更新、节点延迟测试、Core 更新、配置覆写、TUN、流量历史以及 Windows 安装包与签名。
+v1.0.0 确立了 Windows 优先的稳定基线：Profile/订阅管理、代理与 Provider 控制、Connections、Rules、TUN、运行时覆写、诊断、持久日志、异常恢复、Windows 打包与 Release 自动化均已整合到同一桌面客户端。
 
-v0.4.0 已加入受控 TUN 能力。Iterduca 会在 Windows 上检查管理员权限，默认使用 Mihomo 的 `mips` 协议栈，Strict Route 默认关闭，并在真正启动 Core 前先执行完整配置预检。
+1.0 之后可继续扩展流量历史与分析、安装程序与代码签名、多语言界面以及更完整的 Core 生命周期工具，同时保持现有配置模型稳定。
 
 ## 安全设计
 

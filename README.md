@@ -4,7 +4,7 @@
 
 Iterduca is a Windows-first desktop proxy and network routing client built with Python and PyQt6. It uses Mihomo as an external routing core and keeps the desktop application, profile management, runtime configuration, system integration, and core process lifecycle clearly separated.
 
-> Current version: **v0.9.0**
+> Current version: **v1.0.0**
 
 [中文说明](README.zh-CN.md)
 
@@ -14,7 +14,7 @@ Iterduca is not a fork or a reskin of another desktop client. The application la
 
 The name **Iterduca** comes from the Latin idea of guiding a journey: each connection is guided through the appropriate route to its destination.
 
-## v0.9.0 features
+## v1.0.0 features
 
 - PyQt6 desktop interface with a compact dark UI
 - Imported YAML profile management
@@ -54,6 +54,12 @@ The name **Iterduca** comes from the Latin idea of guiding a journey: each conne
 - Full raw Controller payload inspector for selected connections
 - Full raw Controller payload inspector for selected rules
 - Read-only GitHub Releases update check with semantic version comparison
+- Crash-safe Windows system-proxy recovery with persisted ownership state
+- Configuration/Profile backup export and guarded restore
+- Privacy-conscious diagnostics bundle without Profiles, subscription URLs, runtime configuration, controller secrets, or raw logs
+- Local Mixed/Controller port conflict detection before Mihomo startup
+- User-facing minimize-to-tray preference
+- UI version display derived from the application version constant
 - Real-time upload/download traffic through the Controller WebSocket
 - Mihomo stdout log viewer
 - Windows WinINet system proxy enable/restore
@@ -147,11 +153,11 @@ python -m pytest
 python -m ruff check src tests
 ```
 
-## Roadmap
+## 1.0 baseline and future direction
 
-The next milestones are connection inspection, rules and rule-provider views, subscription URL updates, latency testing, core update management, configuration overrides, TUN mode, traffic history, and Windows packaging/signing.
+v1.0.0 establishes the stable Windows-first baseline: profile/subscription management, proxy and provider control, connections, rules, TUN, runtime overrides, diagnostics, persistent logs, recovery safeguards, packaging, and release automation are integrated into one desktop client.
 
-TUN is available in v0.4.0 with explicit privilege checks and guarded runtime configuration. Iterduca defaults to the Mihomo `mips` stack, keeps strict-route optional, and validates the complete runtime configuration before the core is started.
+Post-1.0 work can focus on deeper traffic history/analytics, installer and code-signing improvements, localization, and additional core lifecycle tooling without changing the existing configuration model.
 
 ## Security design
 
