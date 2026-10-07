@@ -12,12 +12,14 @@ from PyQt6.QtWidgets import (
 )
 
 from iterduca.core.api import ProxyGroup
+from iterduca.ui.widgets.sparkline import Sparkline
 
 
 class ProxiesPage(QWidget):
     proxy_selected = pyqtSignal(str, str)
     latency_requested = pyqtSignal(str, str)
     latency_group_requested = pyqtSignal(str, object)
+    history_requested = pyqtSignal(str, str)
     refresh_requested = pyqtSignal()
 
     def __init__(self) -> None:
@@ -47,10 +49,20 @@ class ProxiesPage(QWidget):
         layout.addWidget(hint)
 
         self.nodes = QListWidget()
-        layout.addWidget(self.nodes, 1)
+        layout.addWidget(self.nodes, 2)
+
+        history_label = QLabel("Latency history")
+        history_label.setObjectName("Muted")
+        layout.addWidget(history_label)
+        self.history_title = QLabel("Select a node to view its latency history.")
+        self.history_title.setObjectName("Muted")
+        layout.addWidget(self.history_title)
+        self.latency_chart = Sparkline()
+        layout.addWidget(self.latency_chart, 1)
 
         self.groups.currentIndexChanged.connect(self._show_group)
         self.nodes.itemDoubleClicked.connect(self._select_current)
+        self.nodes.currentRowChanged.connect(self._request_history)
         self.test_latency.clicked.connect(self._test_current)
         self.test_group.clicked.connect(self._test_group)
         self.refresh.clicked.connect(self.refresh_requested.emit)
@@ -107,6 +119,30 @@ class ProxiesPage(QWidget):
         if 0 <= index < len(self._data):
             group = self._data[index]
             self.latency_group_requested.emit(group.name, list(group.all))
+
+    def set_latency_history(
+        self,
+        group: str,
+        proxy: str,
+        samples: list[dict],
+    ) -> None:
+        delays = [
+            int(item.get("delay", -1))
+            for item in samples
+            if isinstance(item, dict) and int(item.get("delay", -1)) >= 0
+        ]
+        self.history_title.setText(
+            f"{group} / {proxy} · {len(samples)} recorded sample(s)"
+        )
+        self.latency_chart.set_series(delays)
+
+    def _request_history(self) -> None:
+        selected = self._current()
+        if selected:
+            self.history_requested.emit(*selected)
+        else:
+            self.history_title.setText("Select a node to view its latency history.")
+            self.latency_chart.clear()
 
     def _current(self) -> tuple[str, str] | None:
         group_index = self.groups.currentIndex()
