@@ -998,7 +998,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_profiles(self) -> None:
         subscriptions = {
-            item.profile_name: item.updated_at
+            item.profile_name: item
             for item in self.subscription_service.list()
         }
         self.profiles.set_profiles(
