@@ -4,6 +4,28 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.4.0] - 2026-10-07
+
+### Added
+
+- Built-in Windows x64 Mihomo Core Manager.
+- Latest release discovery through the official MetaCubeX/mihomo GitHub Release API.
+- Exact selection of the generic `mihomo-windows-amd64-vX.Y.Z.zip` release asset.
+- Mandatory SHA-256 verification using GitHub Release Asset digest metadata.
+- Streamed Core downloads with archive and binary size limits.
+- Atomic managed-Core installation under the Iterduca application-data directory.
+- Post-install `mihomo -v` verification before selecting the managed Core.
+- Core update progress and latest-version status in Settings.
+- Regression tests for release selection, digest requirements, verified extraction, hash mismatch rejection, and version comparison.
+
+### Changed
+
+- Managed Core installation never overwrites a user-selected external Mihomo binary.
+- Iterduca prefers its managed Core when the configured Core path is absent or stale.
+- Invalid configured Core paths automatically fall back to managed/local/PATH discovery.
+- Core replacement is refused while the current Core is running.
+- Version metadata and bilingual documentation updated for v1.4.0.
+
 ## [1.3.0] - 2026-10-07
 
 ### Added
