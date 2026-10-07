@@ -144,6 +144,8 @@ Official project: https://github.com/MetaCubeX/mihomo
 
 Each release can provide a standalone executable, a portable ZIP, and a per-user Setup installer. The installer places Iterduca under the current user's local Programs directory, so installation itself does not require administrator privileges. TUN elevation remains an explicit runtime action.
 
+Maintainers: see [Release Process](docs/RELEASING.md). From v1.7.0 onward, creating a validated `release/vX.Y.Z` branch automatically publishes the matching Git tag and GitHub Release.
+
 ## Run from source
 
 ```powershell
