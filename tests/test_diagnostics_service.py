@@ -17,6 +17,7 @@ def make_paths(root: Path) -> AppPaths:
         subscriptions_file=root / "subscriptions.json",
         override_file=root / "override.yaml",
         proxy_state_file=root / "proxy-state.json",
+        metrics_file=root / "metrics.json",
     )
 
 
