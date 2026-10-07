@@ -6,6 +6,8 @@ on:
       - main
       - "develop/**"
     paths:
+      - "pyproject.toml"
+      - "pyproject.toml"
       - "scripts/installer.iss"
       - "scripts/write_version_info.py"
       - ".github/workflows/release.yml"
