@@ -348,7 +348,7 @@ class MainWindow(QMainWindow):
             return
         self._latest_update = result
         if result.available:
-            if result.installer_url and result.checksums_url:
+            if result.installer_url and result.installer_digest and result.checksums_url:
                 self.tools.set_update_status(
                     f"Update available: v{result.latest_version}. "
                     "Verified Windows Setup is available.",
@@ -440,6 +440,7 @@ class MainWindow(QMainWindow):
             self._latest_update
             and self._latest_update.available
             and self._latest_update.installer_url
+            and self._latest_update.installer_digest
             and self._latest_update.checksums_url
         )
         self.tools.set_update_status(
