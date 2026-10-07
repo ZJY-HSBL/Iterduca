@@ -58,6 +58,8 @@ class SettingsPage(QWidget):
         core_update_row = QHBoxLayout()
         self.check_latest_core = QPushButton("Check latest Mihomo")
         self.install_latest_core = QPushButton("Install verified core")
+        self._core_install_available = False
+        self._core_update_busy = False
         self.install_latest_core.setEnabled(False)
         self.check_latest_core.clicked.connect(
             self.check_latest_core_requested.emit
@@ -146,16 +148,20 @@ class SettingsPage(QWidget):
         *,
         install_enabled: bool = False,
     ) -> None:
+        self._core_install_available = install_enabled
         self.core_update_status.setText(text)
-        self.install_latest_core.setEnabled(install_enabled)
+        self.install_latest_core.setEnabled(
+            install_enabled and not self._core_update_busy
+        )
 
     def set_core_update_progress(self, value: int) -> None:
         self.core_update_progress.setValue(max(0, min(100, int(value))))
 
     def set_core_update_busy(self, busy: bool) -> None:
+        self._core_update_busy = busy
         self.check_latest_core.setEnabled(not busy)
         self.install_latest_core.setEnabled(
-            not busy and self.install_latest_core.isEnabled()
+            self._core_install_available and not busy
         )
 
     def _pick_core(self) -> None:
