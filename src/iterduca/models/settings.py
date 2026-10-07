@@ -42,8 +42,9 @@ class AppSettings:
         }
         values["mixed_port"] = int(values["mixed_port"])
         values["controller_port"] = int(values["controller_port"])
-        values["subscription_update_interval_hours"] = int(
-            values["subscription_update_interval_hours"]
+        values["subscription_update_interval_hours"] = max(
+            1,
+            min(168, int(values["subscription_update_interval_hours"])),
         )
         return cls(**values)
 
