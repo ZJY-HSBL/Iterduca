@@ -70,6 +70,16 @@ class SettingsPage(QWidget):
         self.startup = QCheckBox("Start Iterduca with Windows")
         form.addRow("Startup", self.startup)
 
+        self.subscription_auto_update = QCheckBox(
+            "Automatically update all subscriptions"
+        )
+        form.addRow("Subscriptions", self.subscription_auto_update)
+
+        self.subscription_interval = QSpinBox()
+        self.subscription_interval.setRange(1, 168)
+        self.subscription_interval.setSuffix(" h")
+        form.addRow("Update interval", self.subscription_interval)
+
         self.minimize_to_tray = QCheckBox("Close button minimizes Iterduca to the system tray")
         form.addRow("Window behavior", self.minimize_to_tray)
         layout.addLayout(form)
@@ -88,6 +98,12 @@ class SettingsPage(QWidget):
         self.mode.setCurrentIndex(max(0, index))
         self.system_proxy.setChecked(settings.system_proxy_enabled)
         self.startup.setChecked(settings.startup_enabled)
+        self.subscription_auto_update.setChecked(
+            settings.subscription_auto_update_enabled
+        )
+        self.subscription_interval.setValue(
+            settings.subscription_update_interval_hours
+        )
         self.minimize_to_tray.setChecked(settings.minimize_to_tray)
 
     def set_core_status(self, text: str) -> None:
@@ -110,6 +126,12 @@ class SettingsPage(QWidget):
                 "mode": self.mode.currentText(),
                 "system_proxy_enabled": self.system_proxy.isChecked(),
                 "startup_enabled": self.startup.isChecked(),
+                "subscription_auto_update_enabled": (
+                    self.subscription_auto_update.isChecked()
+                ),
+                "subscription_update_interval_hours": (
+                    self.subscription_interval.value()
+                ),
                 "minimize_to_tray": self.minimize_to_tray.isChecked(),
             }
         )
