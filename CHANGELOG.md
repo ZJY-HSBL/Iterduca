@@ -4,6 +4,25 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.3.0] - 2026-10-07
+
+### Added
+
+- Subscription quota metadata parsed from the common `subscription-userinfo` response header.
+- Persisted upload, download, total quota, and expiry timestamp metadata.
+- Used/total/remaining traffic information in the Profiles page.
+- Seven-day subscription expiry warning.
+- Optional automatic refresh for all subscriptions.
+- Configurable subscription refresh interval from 1 to 168 hours.
+- Regression coverage for subscription metadata parsing, persistence, malformed metadata, interval persistence, and interval clamping.
+
+### Changed
+
+- Background subscription updates run off the Qt main thread and log failures instead of opening modal dialogs.
+- Manual and automatic update-all tasks share an in-flight guard to prevent duplicate concurrent refreshes.
+- Corrupt persisted quota values safely fall back to zero instead of breaking Profile loading.
+- Version metadata and bilingual documentation updated for v1.3.0.
+
 ## [1.2.0] - 2026-10-07
 
 ### Added
