@@ -20,6 +20,7 @@ class ToolsPage(QWidget):
     flush_fakeip_requested = pyqtSignal()
     dns_query_requested = pyqtSignal(str, str)
     check_update_requested = pyqtSignal()
+    install_update_requested = pyqtSignal()
     export_backup_requested = pyqtSignal()
     restore_backup_requested = pyqtSignal()
     export_diagnostics_requested = pyqtSignal()
@@ -72,10 +73,14 @@ class ToolsPage(QWidget):
         update_row = QHBoxLayout()
         check_update = QPushButton("Check for updates")
         check_update.clicked.connect(self.check_update_requested.emit)
+        self.install_update = QPushButton("Download & install")
+        self.install_update.setEnabled(False)
+        self.install_update.clicked.connect(self.install_update_requested.emit)
         self.update_status = QLabel("Update status has not been checked.")
         self.update_status.setObjectName("Muted")
         self.update_status.setWordWrap(True)
         update_row.addWidget(check_update)
+        update_row.addWidget(self.install_update)
         update_row.addWidget(self.update_status, 1)
         layout.addLayout(update_row)
 
@@ -109,8 +114,15 @@ class ToolsPage(QWidget):
             json.dumps(payload, ensure_ascii=False, indent=2)
         )
 
-    def set_update_status(self, text: str) -> None:
+    def set_update_status(
+        self,
+        text: str,
+        *,
+        install_enabled: bool | None = None,
+    ) -> None:
         self.update_status.setText(text)
+        if install_enabled is not None:
+            self.install_update.setEnabled(install_enabled)
 
     def _query(self) -> None:
         name = self.domain.text().strip()
