@@ -4,6 +4,25 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.1.0] - 2026-10-07
+
+### Added
+
+- Persistent upload/download traffic history.
+- Lightweight QPainter-based traffic chart on Overview without an additional charting dependency.
+- Persistent per-group/per-node latency history with bounded sample retention.
+- Latency-history chart for the currently selected proxy node.
+- Connections search across host, process, network, chain, and rule fields.
+- Sortable Connections columns with numeric ordering for upload/download values.
+- Regression coverage for traffic/latency history persistence and retention limits.
+
+### Changed
+
+- Traffic history is sampled every five seconds and flushed periodically instead of writing on every WebSocket event.
+- History data is atomically flushed on core shutdown.
+- Connection row payloads are bound to table items so sorting cannot desynchronize the detail panel or close action.
+- Version metadata and bilingual documentation updated for v1.1.0.
+
 ## [1.0.0] - 2026-10-07
 
 ### Added
