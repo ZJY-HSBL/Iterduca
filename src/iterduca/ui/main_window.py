@@ -110,6 +110,7 @@ class MainWindow(QMainWindow):
         self._force_quit = False
         self._system_proxy_active = False
         self._latest_traffic = (0, 0)
+        self._subscription_update_inflight = False
 
         proxy_recovery_message = ""
         try:
@@ -136,6 +137,7 @@ class MainWindow(QMainWindow):
         self._load_overrides()
         self._refresh_tun_status()
         self._build_health_timer()
+        self._build_subscription_timer()
 
     def _build_ui(self) -> None:
         root = QWidget()
@@ -415,6 +417,26 @@ class MainWindow(QMainWindow):
         self.health_timer.setInterval(1000)
         self.health_timer.timeout.connect(self._poll_core_state)
         self.health_timer.start()
+
+    def _build_subscription_timer(self) -> None:
+        self.subscription_timer = QTimer(self)
+        self.subscription_timer.timeout.connect(
+            lambda: self._update_all_subscriptions(background=True)
+        )
+        self._configure_subscription_timer()
+
+    def _configure_subscription_timer(self) -> None:
+        self.subscription_timer.stop()
+        if not self.settings.subscription_auto_update_enabled:
+            return
+        interval_ms = (
+            max(1, self.settings.subscription_update_interval_hours)
+            * 60
+            * 60
+            * 1000
+        )
+        self.subscription_timer.setInterval(interval_ms)
+        self.subscription_timer.start()
 
     def _poll_core_state(self) -> None:
         has_runtime_state = (
@@ -962,7 +984,14 @@ class MainWindow(QMainWindow):
             lambda: self.subscription_service.update(profile_name)
         )
 
-    def _update_all_subscriptions(self) -> None:
+    def _update_all_subscriptions(self, background: bool = False) -> None:
+        if self._subscription_update_inflight:
+            if not background:
+                self._log("[subscription] An update-all task is already running.")
+            return
+
+        self._subscription_update_inflight = True
+
         def worker() -> None:
             try:
                 infos = self.subscription_service.update_all()
@@ -972,7 +1001,14 @@ class MainWindow(QMainWindow):
                     f"[subscription] Bulk update complete: {len(infos)} profile(s)."
                 )
             except Exception as exc:
-                self.bridge.subscription_error.emit(str(exc))
+                if background:
+                    self.bridge.log.emit(
+                        f"[subscription] Automatic update failed: {exc}"
+                    )
+                else:
+                    self.bridge.subscription_error.emit(str(exc))
+            finally:
+                self._subscription_update_inflight = False
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -1113,6 +1149,12 @@ class MainWindow(QMainWindow):
         self.settings.mode = str(values["mode"])
         requested_proxy = bool(values["system_proxy_enabled"])
         requested_startup = bool(values["startup_enabled"])
+        self.settings.subscription_auto_update_enabled = bool(
+            values["subscription_auto_update_enabled"]
+        )
+        self.settings.subscription_update_interval_hours = int(
+            values["subscription_update_interval_hours"]
+        )
         self.settings.minimize_to_tray = bool(values["minimize_to_tray"])
         if requested_startup != self.settings.startup_enabled:
             try:
@@ -1133,6 +1175,7 @@ class MainWindow(QMainWindow):
                 self._system_proxy_active = False
         self.settings.system_proxy_enabled = requested_proxy
         self.settings_service.save(self.settings)
+        self._configure_subscription_timer()
         self.overview.set_mode(self.settings.mode)
         QMessageBox.information(self, "Settings", "Settings saved.")
 
