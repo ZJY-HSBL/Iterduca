@@ -55,10 +55,16 @@ class SubscriptionService:
                         profile_name=profile_name,
                         url=url,
                         updated_at=updated_at,
-                        upload_bytes=int(item.get("upload_bytes", 0) or 0),
-                        download_bytes=int(item.get("download_bytes", 0) or 0),
-                        total_bytes=int(item.get("total_bytes", 0) or 0),
-                        expire_at=int(item.get("expire_at", 0) or 0),
+                        upload_bytes=self._nonnegative_int(
+                            item.get("upload_bytes", 0)
+                        ),
+                        download_bytes=self._nonnegative_int(
+                            item.get("download_bytes", 0)
+                        ),
+                        total_bytes=self._nonnegative_int(
+                            item.get("total_bytes", 0)
+                        ),
+                        expire_at=self._nonnegative_int(item.get("expire_at", 0)),
                     )
                 )
         return sorted(items, key=lambda item: item.profile_name.lower())
@@ -165,6 +171,13 @@ class SubscriptionService:
         useful_keys = {"proxies", "proxy-providers", "proxy-groups", "rules"}
         if not useful_keys.intersection(data):
             raise ValueError("Subscription does not look like a Mihomo-compatible profile")
+
+    @staticmethod
+    def _nonnegative_int(value: object) -> int:
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return 0
 
     @staticmethod
     def _parse_userinfo(value: str) -> dict[str, int]:
