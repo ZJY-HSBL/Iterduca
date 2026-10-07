@@ -119,10 +119,9 @@ The imported profile is never edited in place. Iterduca writes a separate runtim
 ## Requirements
 
 - Windows 10/11
-- Python 3.12+
-- Mihomo executable
+- Python 3.12+ when running from source
 
-Mihomo is **not bundled** in this repository. Download it from the official MetaCubeX/mihomo project and select the executable in **Settings**.
+Mihomo is not embedded in the Iterduca repository or application package. Iterduca can download the official Windows x64 Mihomo release on demand from MetaCubeX/mihomo, verify its SHA-256 digest, and manage it under the Iterduca application-data directory. You can also select your own external Mihomo executable in **Settings**; Iterduca never overwrites a user-selected external Core.
 
 Official project: https://github.com/MetaCubeX/mihomo
 
@@ -149,14 +148,14 @@ Alternatively:
 
 ## First run
 
-1. Open **Settings** and select your Mihomo executable.
-2. Set the mixed port and Controller port if the defaults conflict with another application.
-3. Open **Profiles** and import a valid Mihomo/Clash-compatible YAML profile.
-4. Select the profile and click **Use selected**.
+1. Open **Settings**. Use the built-in Core Manager to install the latest verified Windows x64 Mihomo Core, or select an external Mihomo executable.
+2. Set the Mixed Port and Controller Port if the defaults conflict with another application.
+3. Open **Profiles** and import a valid Mihomo/Clash-compatible YAML profile or add a subscription URL.
+4. Select the Profile and click **Use selected**.
 5. Return to **Overview** and click **Start core**.
-6. Enable Windows system proxy in Settings if you want applications using the system proxy to route through Iterduca.
+6. Enable Windows System Proxy or TUN according to how you want traffic to enter Iterduca.
 
-The Controller is forced to `127.0.0.1` in v0.1.0 and receives a fresh random secret for each runtime configuration.
+The Controller is always bound to `127.0.0.1` and receives a fresh random secret for each generated runtime configuration.
 
 ## Project structure
 
