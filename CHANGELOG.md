@@ -4,6 +4,26 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.5.0] - 2026-10-07
+
+### Added
+
+- Verified Iterduca application update downloads from GitHub Releases.
+- Exact Windows Setup asset selection for the latest Iterduca version.
+- SHA-256 checksum verification against `SHA256SUMS.txt`.
+- Independent cross-check against GitHub Release Asset `digest` metadata.
+- 256 MiB installer download safety limit and atomic temporary-file replacement.
+- Explicit Download & Install control in Tools.
+- Regression coverage for exact asset selection, untrusted URL rejection, verified download, tamper rejection, and digest-manifest disagreement.
+
+### Changed
+
+- Application updates are never installed silently; installation requires explicit user confirmation after verification.
+- Iterduca stops the Mihomo Core and restores owned runtime state before launching the verified Setup installer.
+- Core setup documentation now reflects the built-in managed Core workflow introduced in v1.4.
+- GitHub Release text now explains managed Core installation instead of requiring manual Mihomo setup.
+- Version metadata and bilingual documentation updated for v1.5.0.
+
 ## [1.4.0] - 2026-10-07
 
 ### Added
