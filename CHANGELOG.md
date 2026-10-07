@@ -4,6 +4,26 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.7.0] - 2026-10-08
+
+### Added
+
+- Case-insensitive proxy node search.
+- Proxy sorting by profile order, name, or measured latency.
+- Test-visible action for latency testing the current filtered node set.
+- Proxy group coverage summary for visible, tested, and reachable nodes.
+- Latency history minimum, average, and maximum statistics.
+- Pure, unit-tested proxy filtering, sorting, and latency-statistics services.
+- Automatic GitHub Release publishing when a validated release/vX.Y.Z branch is created.
+- Bilingual release-process documentation.
+
+### Changed
+
+- Proxy list items now bind directly to their real proxy names, keeping selection, switching, latency testing, and history correct after filtering or sorting.
+- Unavailable or untested nodes sort after successful measurements in latency mode.
+- Release workflow validates the release branch/tag against the project version before publishing.
+- Version metadata and bilingual documentation updated for v1.7.0.
+
 ## [1.6.0] - 2026-10-07
 
 ### Added
