@@ -4,7 +4,7 @@
 
 Iterduca is a Windows-first desktop proxy and network routing client built with Python and PyQt6. It uses Mihomo as an external routing core and keeps the desktop application, profile management, runtime configuration, system integration, and core process lifecycle clearly separated.
 
-> Current version: **v1.1.0**
+> Current version: **v1.2.0**
 
 [中文说明](README.zh-CN.md)
 
@@ -14,7 +14,7 @@ Iterduca is not a fork or a reskin of another desktop client. The application la
 
 The name **Iterduca** comes from the Latin idea of guiding a journey: each connection is guided through the appropriate route to its destination.
 
-## v1.1.0 features
+## v1.2.0 features
 
 - PyQt6 desktop interface with a compact dark UI
 - Imported YAML profile management
@@ -65,6 +65,11 @@ The name **Iterduca** comes from the Latin idea of guiding a journey: each conne
 - Traffic history sampled in memory and periodically flushed to disk
 - Connections search across host/process/network/chain/rule fields
 - Stable sortable Connections rows, including numeric upload/download sorting
+- Detailed Profile statistics for proxies, groups, rules, Proxy Providers, Rule Providers, and file size
+- Subscription-backed Profiles display their latest update timestamp
+- Multi-file YAML import and drag-and-drop Profile import
+- Per-user Windows Setup installer generated with Inno Setup
+- Installer CI performs real PyInstaller + Inno Setup packaging validation
 - Real-time upload/download traffic through the Controller WebSocket
 - Mihomo stdout log viewer
 - Windows WinINet system proxy enable/restore
@@ -107,6 +112,10 @@ The imported profile is never edited in place. Iterduca writes a separate runtim
 Mihomo is **not bundled** in this repository. Download it from the official MetaCubeX/mihomo project and select the executable in **Settings**.
 
 Official project: https://github.com/MetaCubeX/mihomo
+
+## Windows releases
+
+Each release can provide a standalone executable, a portable ZIP, and a per-user Setup installer. The installer places Iterduca under the current user's local Programs directory, so installation itself does not require administrator privileges. TUN elevation remains an explicit runtime action.
 
 ## Run from source
 

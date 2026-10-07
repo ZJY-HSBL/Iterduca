@@ -4,7 +4,7 @@
 
 Iterduca 是一款 Windows 优先的桌面代理与网络路由客户端，使用 Python + PyQt6 开发，以 Mihomo 作为外部路由核心。项目将桌面界面、配置管理、运行时配置、系统网络集成和核心进程生命周期明确分层，而不是把所有逻辑直接堆在 UI 事件中。
 
-> 当前版本：**v1.1.0**
+> 当前版本：**v1.2.0**
 
 [English README](README.md)
 
@@ -14,7 +14,7 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 
 **Iterduca** 的命名取自“引导旅程”的拉丁语意象：让每一次连接沿合适的路径抵达目标。
 
-## v1.1.0 已实现
+## v1.2.0 已实现
 
 - PyQt6 桌面客户端与深色界面
 - YAML 配置导入与本地管理
@@ -65,6 +65,11 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 - 流量历史先在内存采样，再定时原子落盘，避免频繁磁盘 IO
 - Connections 支持 Host / Process / Network / Chain / Rule 搜索
 - Connections 支持稳定列排序，上传/下载按数值排序
+- Profile 统计节点、代理组、规则、Proxy Providers、Rule Providers 与文件大小
+- 订阅型 Profile 显示最近更新时间
+- 支持一次选择多个 YAML 文件并支持拖拽导入
+- 使用 Inno Setup 生成当前用户级 Windows Setup 安装程序
+- Installer CI 真实执行 PyInstaller + Inno Setup 完整打包验证
 - 基于 Controller WebSocket 的实时上传/下载速率
 - Mihomo 标准输出日志查看
 - Windows WinINet 系统代理开启与恢复
@@ -107,6 +112,10 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 本仓库**不直接捆绑 Mihomo 二进制文件**。请从 MetaCubeX/mihomo 官方项目获取核心，然后在 Iterduca 的 **Settings** 页面选择其可执行文件。
 
 Mihomo 官方项目：https://github.com/MetaCubeX/mihomo
+
+## Windows 发布包
+
+正式版本可同时提供独立 EXE、Portable ZIP 和当前用户级 Setup 安装程序。安装程序默认安装到当前用户的本地 Programs 目录，因此安装本身无需管理员权限；只有启用 TUN 时才由 Iterduca 明确触发 UAC 提权。
 
 ## 源码运行
 

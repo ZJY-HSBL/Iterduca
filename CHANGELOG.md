@@ -4,6 +4,25 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.2.0] - 2026-10-07
+
+### Added
+
+- Detailed Profile statistics for proxy nodes, proxy groups, rules, Proxy Providers, Rule Providers, and file size.
+- Subscription update timestamps in the Profiles interface.
+- Multi-file YAML import.
+- Drag-and-drop YAML Profile import.
+- Per-user Windows Setup installer built with Inno Setup.
+- Dedicated Installer CI that performs a real PyInstaller + Inno Setup build and verifies generated artifacts.
+- Installer CI is retriggered whenever project version metadata changes.
+
+### Changed
+
+- Profiles now expose richer configuration structure information instead of only proxy counts.
+- Release workflow uploads the Setup installer alongside the standalone EXE, portable ZIP, and checksum manifest.
+- Windows installation defaults to the current user's local Programs directory and does not require elevation.
+- Version metadata and bilingual documentation updated for v1.2.0.
+
 ## [1.1.0] - 2026-10-07
 
 ### Added
