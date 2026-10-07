@@ -119,10 +119,9 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 ## 环境要求
 
 - Windows 10 / 11
-- Python 3.12+
-- Mihomo 可执行文件
+- 从源码运行时需要 Python 3.12+
 
-本仓库**不直接捆绑 Mihomo 二进制文件**。请从 MetaCubeX/mihomo 官方项目获取核心，然后在 Iterduca 的 **Settings** 页面选择其可执行文件。
+Iterduca 仓库和应用安装包本身不内嵌 Mihomo 二进制文件。程序可在 **Settings** 中通过内置 Core Manager 按需从 MetaCubeX/mihomo 官方 Release 下载 Windows x64 Core，完成 SHA-256 校验后安装到 Iterduca 应用数据目录；也可以继续选择用户自己的外部 Mihomo 可执行文件。Iterduca 不会覆盖用户手动指定的外部 Core。
 
 Mihomo 官方项目：https://github.com/MetaCubeX/mihomo
 
@@ -149,14 +148,14 @@ python -m iterduca
 
 ## 首次使用
 
-1. 打开 **Settings**，选择 Mihomo 可执行文件。
-2. 根据需要修改 Mixed Port 和 Controller Port。
-3. 打开 **Profiles**，导入有效的 Mihomo / Clash 兼容 YAML 配置。
+1. 打开 **Settings**，使用内置 Core Manager 安装最新且已校验的 Windows x64 Mihomo Core，或选择自己的外部 Mihomo 可执行文件。
+2. 如默认端口与其他程序冲突，再修改 Mixed Port 和 Controller Port。
+3. 打开 **Profiles**，导入 Mihomo / Clash 兼容 YAML，或添加订阅 URL。
 4. 选中配置并点击 **Use selected**。
 5. 回到 **Overview**，点击 **Start core**。
-6. 如果希望使用 Windows 系统代理的应用流量进入 Iterduca，可在 Settings 中开启 System Proxy。
+6. 根据实际需要开启 Windows System Proxy 或 TUN。
 
-v0.1.0 会强制将 Controller 绑定至 `127.0.0.1`，同时每次构建运行时配置都会生成新的随机 Secret。
+Controller 始终绑定在 `127.0.0.1`，每次生成 Runtime Config 都会重新生成随机 Secret。
 
 ## 项目结构
 
