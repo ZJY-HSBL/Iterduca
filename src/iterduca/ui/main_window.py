@@ -696,6 +696,8 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(3000, self._restart_core_after_crash)
 
     def _restart_core_after_crash(self) -> None:
+        if not self._restart_scheduled:
+            return
         self._restart_scheduled = False
         if not self.settings.restart_core_on_crash or self.core.running:
             return
@@ -771,6 +773,7 @@ class MainWindow(QMainWindow):
             return False
 
     def stop_core(self) -> None:
+        self._restart_scheduled = False
         if self.traffic_monitor:
             self.traffic_monitor.stop()
             self.traffic_monitor = None
