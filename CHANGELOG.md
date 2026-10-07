@@ -4,6 +4,25 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.6.0] - 2026-10-07
+
+### Added
+
+- Optional Mihomo Core auto-start when Iterduca launches.
+- Optional automatic restart after an unexpected Mihomo Core exit.
+- Dedicated Core restart policy with a maximum of three attempts per 60-second window.
+- System tray notifications for unexpected Core exits, scheduled recovery, background start success/failure, and restart-loop suppression.
+- Diagnostics metadata for Core auto-start, crash recovery, subscription auto-update, and window-behavior settings.
+- Regression coverage for restart rate limiting and startup/recovery setting persistence.
+
+### Changed
+
+- Core startup now has separate interactive and background paths so automatic startup failures never open blocking modal dialogs.
+- Manual Stop cancels any pending automatic crash-recovery restart.
+- System tray tooltip and Start/Stop action enabled state now follow the actual Core state.
+- Unexpected Core exits restore runtime/network state before a recovery attempt is scheduled.
+- Version metadata and bilingual documentation updated for v1.6.0.
+
 ## [1.5.0] - 2026-10-07
 
 ### Added

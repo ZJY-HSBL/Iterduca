@@ -4,7 +4,7 @@
 
 Iterduca is a Windows-first desktop proxy and network routing client built with Python and PyQt6. It uses Mihomo as an external routing core and keeps the desktop application, profile management, runtime configuration, system integration, and core process lifecycle clearly separated.
 
-> Current version: **v1.5.0**
+> Current version: **v1.6.0**
 
 [中文说明](README.zh-CN.md)
 
@@ -14,7 +14,7 @@ Iterduca is not a fork or a reskin of another desktop client. The application la
 
 The name **Iterduca** comes from the Latin idea of guiding a journey: each connection is guided through the appropriate route to its destination.
 
-## v1.5.0 features
+## v1.6.0 features
 
 - PyQt6 desktop interface with a compact dark UI
 - Imported YAML profile management
@@ -90,6 +90,14 @@ The name **Iterduca** comes from the Latin idea of guiding a journey: each conne
 - Untrusted/non-HTTPS update asset URLs are rejected before download
 - Verified updates require explicit user confirmation; Iterduca never performs silent background installation
 - Before launching a verified Setup update, Iterduca stops Mihomo and restores owned runtime/network state
+- Optional Mihomo Core auto-start when Iterduca launches
+- Optional automatic recovery after an unexpected Mihomo exit
+- Crash recovery is rate-limited to 3 restart attempts per 60 seconds to prevent restart loops
+- Manual Stop cancels a pending crash-recovery restart
+- Automatic/background Core startup failures are logged and surfaced through the system tray instead of opening blocking dialogs
+- System tray tooltip and Start/Stop actions follow the actual Core running state
+- Tray notifications surface unexpected exits, scheduled recovery, successful background starts, and suppressed restart loops
+- Privacy-safe diagnostics include Core startup/recovery preferences for troubleshooting
 - Real-time upload/download traffic through the Controller WebSocket
 - Mihomo stdout log viewer
 - Windows WinINet system proxy enable/restore
