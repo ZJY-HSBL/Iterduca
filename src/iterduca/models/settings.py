@@ -22,6 +22,8 @@ class AppSettings:
     mode: str = DEFAULT_MODE
     system_proxy_enabled: bool = False
     startup_enabled: bool = False
+    auto_start_core: bool = False
+    restart_core_on_crash: bool = False
     subscription_auto_update_enabled: bool = False
     subscription_update_interval_hours: int = 24
     tun_enabled: bool = False
