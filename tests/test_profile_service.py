@@ -42,3 +42,29 @@ def test_delete_profile_is_confined_to_profile_directory(tmp_path: Path) -> None
     outside.write_text("proxies: []\n", encoding="utf-8")
     with pytest.raises(FileNotFoundError):
         service.delete("../outside.yaml")
+
+
+def test_profile_info_reports_mihomo_structure_counts(tmp_path: Path) -> None:
+    source = tmp_path / "stats.yaml"
+    source.write_text(
+        "proxies:\n"
+        "  - {name: A, type: direct}\n"
+        "proxy-groups:\n"
+        "  - {name: G, type: select, proxies: [A]}\n"
+        "rules:\n"
+        "  - MATCH,G\n"
+        "proxy-providers:\n"
+        "  provider-a: {type: file, path: ./a.yaml}\n"
+        "rule-providers:\n"
+        "  rules-a: {type: file, behavior: domain, path: ./rules.yaml}\n",
+        encoding="utf-8",
+    )
+
+    info = ProfileService(tmp_path / "profiles").import_file(source)
+
+    assert info.proxy_count == 1
+    assert info.group_count == 1
+    assert info.rule_count == 1
+    assert info.proxy_provider_count == 1
+    assert info.rule_provider_count == 1
+    assert info.size_bytes > 0
