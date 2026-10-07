@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QTableWidget,
@@ -61,7 +62,7 @@ class ConnectionsPage(QWidget):
         refresh.clicked.connect(self.refresh_requested.emit)
         close_selected.clicked.connect(self._close_selected)
         close_visible.clicked.connect(self._close_visible)
-        close_all.clicked.connect(self.close_all_requested.emit)
+        close_all.clicked.connect(self._close_all)
         actions.addWidget(self.search, 1)
         actions.addWidget(refresh)
         actions.addWidget(close_selected)
@@ -146,8 +147,31 @@ class ConnectionsPage(QWidget):
             for item in self._visible_payloads()
         ]
         ids = [value for value in ids if value]
-        if ids:
+        if not ids:
+            return
+        answer = QMessageBox.question(
+            self,
+            "Close visible connections",
+            f"Close {len(ids)} currently visible connection(s)?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer == QMessageBox.StandardButton.Yes:
             self.close_visible_requested.emit(ids)
+
+    def _close_all(self) -> None:
+        total = self.table.rowCount()
+        if total <= 0:
+            return
+        answer = QMessageBox.question(
+            self,
+            "Close all connections",
+            f"Close all {total} active connection(s)?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.close_all_requested.emit()
 
     def _show_details(self) -> None:
         item = self._selected_payload()
