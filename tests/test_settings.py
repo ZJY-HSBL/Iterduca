@@ -37,3 +37,15 @@ def test_subscription_update_interval_is_coerced_to_int(tmp_path: Path) -> None:
 
     assert loaded.subscription_auto_update_enabled is True
     assert loaded.subscription_update_interval_hours == 6
+
+
+def test_subscription_update_interval_is_clamped(tmp_path: Path) -> None:
+    path = tmp_path / "settings.json"
+    path.write_text(
+        '{"subscription_update_interval_hours": 9999}',
+        encoding="utf-8",
+    )
+
+    loaded = SettingsService(path).load()
+
+    assert loaded.subscription_update_interval_hours == 168
