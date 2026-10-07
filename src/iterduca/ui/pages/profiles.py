@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -25,6 +28,8 @@ class ProfilesPage(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
+        self.setAcceptDrops(True)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 24, 28, 24)
         layout.setSpacing(12)
@@ -34,10 +39,11 @@ class ProfilesPage(QWidget):
         layout.addWidget(title)
 
         hint = QLabel(
-            "Imported profiles are preserved unchanged; "
-            "Iterduca creates a disposable runtime config."
+            "Imported profiles are preserved unchanged. Drop .yaml/.yml files anywhere "
+            "on this page to import them."
         )
         hint.setObjectName("Muted")
+        hint.setWordWrap(True)
         layout.addWidget(hint)
 
         subscription_row = QHBoxLayout()
@@ -50,7 +56,13 @@ class ProfilesPage(QWidget):
         layout.addLayout(subscription_row)
 
         self.list = QListWidget()
+        self.list.currentRowChanged.connect(self._show_details)
         layout.addWidget(self.list, 1)
+
+        self.details = QLabel("Select a Profile to view statistics.")
+        self.details.setObjectName("Muted")
+        self.details.setWordWrap(True)
+        layout.addWidget(self.details)
 
         actions = QHBoxLayout()
         self.import_button = QPushButton("Import YAML")
@@ -72,23 +84,28 @@ class ProfilesPage(QWidget):
         self.update_all_button.clicked.connect(self.subscription_update_all_requested.emit)
         self.delete_button.clicked.connect(self._delete_selected)
         self.use_button.clicked.connect(self._activate)
+
         self._profiles: list[ProfileInfo] = []
-        self._subscription_names: set[str] = set()
+        self._subscriptions: dict[str, str] = {}
 
     def set_profiles(
         self,
         profiles: list[ProfileInfo],
         active: str,
-        subscription_names: set[str] | None = None,
+        subscriptions: dict[str, str] | None = None,
     ) -> None:
         self._profiles = profiles
-        self._subscription_names = subscription_names or set()
+        self._subscriptions = subscriptions or {}
         self.list.clear()
         active_row = -1
 
         for index, profile in enumerate(profiles):
-            parts = [profile.name, f"{profile.proxy_count} proxies"]
-            if profile.name in self._subscription_names:
+            parts = [
+                profile.name,
+                f"{profile.proxy_count} proxies",
+                f"{profile.rule_count} rules",
+            ]
+            if profile.name in self._subscriptions:
                 parts.append("SUBSCRIPTION")
             if profile.name == active:
                 parts.append("ACTIVE")
@@ -97,10 +114,51 @@ class ProfilesPage(QWidget):
 
         if active_row >= 0:
             self.list.setCurrentRow(active_row)
+        elif profiles:
+            self.list.setCurrentRow(0)
+        else:
+            self.details.setText("No Profiles imported.")
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802 - Qt API
+        if self._yaml_paths(event.mimeData().urls()):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802 - Qt API
+        paths = self._yaml_paths(event.mimeData().urls())
+        if not paths:
+            return
+        for path in paths:
+            self.import_requested.emit(str(path))
+        event.acceptProposedAction()
+
+    def _show_details(self) -> None:
+        row = self.list.currentRow()
+        if not 0 <= row < len(self._profiles):
+            self.details.setText("Select a Profile to view statistics.")
+            return
+
+        profile = self._profiles[row]
+        updated = self._subscriptions.get(profile.name)
+        parts = [
+            f"Nodes {profile.proxy_count}",
+            f"Groups {profile.group_count}",
+            f"Rules {profile.rule_count}",
+            f"Proxy Providers {profile.proxy_provider_count}",
+            f"Rule Providers {profile.rule_provider_count}",
+            f"Size {self._format_size(profile.size_bytes)}",
+        ]
+        if updated:
+            parts.append(f"Subscription updated {updated}")
+        self.details.setText("  ·  ".join(parts))
 
     def _pick_file(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Import profile", "", "YAML (*.yaml *.yml)")
-        if path:
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Import Profiles",
+            "",
+            "YAML (*.yaml *.yml)",
+        )
+        for path in paths:
             self.import_requested.emit(path)
 
     def _activate(self) -> None:
@@ -118,8 +176,27 @@ class ProfilesPage(QWidget):
         if 0 <= row < len(self._profiles):
             self.subscription_update_requested.emit(self._profiles[row].name)
 
-
     def _delete_selected(self) -> None:
         row = self.list.currentRow()
         if 0 <= row < len(self._profiles):
             self.delete_requested.emit(self._profiles[row].name)
+
+    @staticmethod
+    def _yaml_paths(urls) -> list[Path]:
+        paths: list[Path] = []
+        for url in urls:
+            if not url.isLocalFile():
+                continue
+            path = Path(url.toLocalFile())
+            if path.is_file() and path.suffix.lower() in {".yaml", ".yml"}:
+                paths.append(path)
+        return paths
+
+    @staticmethod
+    def _format_size(value: int) -> str:
+        size = float(max(0, value))
+        for unit in ("B", "KB", "MB"):
+            if size < 1024 or unit == "MB":
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return "0 B"
