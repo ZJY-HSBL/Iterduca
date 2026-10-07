@@ -25,6 +25,15 @@ class DiagnosticsService:
             "mode": settings.mode,
             "system_proxy_enabled": settings.system_proxy_enabled,
             "startup_enabled": settings.startup_enabled,
+            "auto_start_core": settings.auto_start_core,
+            "restart_core_on_crash": settings.restart_core_on_crash,
+            "subscription_auto_update_enabled": (
+                settings.subscription_auto_update_enabled
+            ),
+            "subscription_update_interval_hours": (
+                settings.subscription_update_interval_hours
+            ),
+            "minimize_to_tray": settings.minimize_to_tray,
             "tun_enabled": settings.tun_enabled,
             "tun_stack": settings.tun_stack,
             "tun_auto_route": settings.tun_auto_route,
