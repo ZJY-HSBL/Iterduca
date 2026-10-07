@@ -19,6 +19,20 @@ class SubscriptionInfo:
     profile_name: str
     url: str
     updated_at: str
+    upload_bytes: int = 0
+    download_bytes: int = 0
+    total_bytes: int = 0
+    expire_at: int = 0
+
+    @property
+    def used_bytes(self) -> int:
+        return max(0, self.upload_bytes) + max(0, self.download_bytes)
+
+    @property
+    def remaining_bytes(self) -> int:
+        if self.total_bytes <= 0:
+            return 0
+        return max(0, self.total_bytes - self.used_bytes)
 
 
 class SubscriptionService:
@@ -41,19 +55,24 @@ class SubscriptionService:
                         profile_name=profile_name,
                         url=url,
                         updated_at=updated_at,
+                        upload_bytes=int(item.get("upload_bytes", 0) or 0),
+                        download_bytes=int(item.get("download_bytes", 0) or 0),
+                        total_bytes=int(item.get("total_bytes", 0) or 0),
+                        expire_at=int(item.get("expire_at", 0) or 0),
                     )
                 )
         return sorted(items, key=lambda item: item.profile_name.lower())
 
     def add(self, url: str) -> SubscriptionInfo:
         normalized = self._validate_url(url)
-        text = self._download(normalized)
+        text, usage = self._download(normalized)
         profile_name = self._profile_name(normalized)
         self._write_profile(profile_name, text)
         info = SubscriptionInfo(
             profile_name=profile_name,
             url=normalized,
             updated_at=self._now(),
+            **usage,
         )
         self._save_info(info)
         return info
@@ -74,17 +93,18 @@ class SubscriptionService:
         if not isinstance(item, dict) or not item.get("url"):
             raise KeyError(profile_name)
         normalized = self._validate_url(str(item["url"]))
-        text = self._download(normalized)
+        text, usage = self._download(normalized)
         self._write_profile(profile_name, text)
         info = SubscriptionInfo(
             profile_name=profile_name,
             url=normalized,
             updated_at=self._now(),
+            **usage,
         )
         self._save_info(info)
         return info
 
-    def _download(self, url: str) -> str:
+    def _download(self, url: str) -> tuple[str, dict[str, int]]:
         response = httpx.get(
             url,
             follow_redirects=True,
@@ -97,7 +117,8 @@ class SubscriptionService:
             raise ValueError("Subscription is larger than 8 MiB")
         text = content.decode("utf-8-sig")
         self._validate_profile(text)
-        return text
+        usage = self._parse_userinfo(response.headers.get("subscription-userinfo", ""))
+        return text, usage
 
     def _write_profile(self, profile_name: str, text: str) -> None:
         target = self.profiles_dir / profile_name
@@ -144,6 +165,33 @@ class SubscriptionService:
         useful_keys = {"proxies", "proxy-providers", "proxy-groups", "rules"}
         if not useful_keys.intersection(data):
             raise ValueError("Subscription does not look like a Mihomo-compatible profile")
+
+    @staticmethod
+    def _parse_userinfo(value: str) -> dict[str, int]:
+        parsed = {
+            "upload_bytes": 0,
+            "download_bytes": 0,
+            "total_bytes": 0,
+            "expire_at": 0,
+        }
+        mapping = {
+            "upload": "upload_bytes",
+            "download": "download_bytes",
+            "total": "total_bytes",
+            "expire": "expire_at",
+        }
+        for chunk in value.split(";"):
+            key, separator, raw = chunk.strip().partition("=")
+            if not separator:
+                continue
+            target = mapping.get(key.strip().lower())
+            if target is None:
+                continue
+            try:
+                parsed[target] = max(0, int(raw.strip()))
+            except ValueError:
+                continue
+        return parsed
 
     @staticmethod
     def _profile_name(url: str) -> str:
