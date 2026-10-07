@@ -19,6 +19,7 @@ from iterduca.services.proxy_view import (
     SORT_NAME,
     SORT_PROFILE,
     arrange_proxy_names,
+    latency_statistics,
 )
 from iterduca.ui.widgets.sparkline import Sparkline
 
@@ -229,20 +230,21 @@ class ProxiesPage(QWidget):
         proxy: str,
         samples: list[dict],
     ) -> None:
+        stats = latency_statistics(samples)
         delays = [
             int(item.get("delay", -1))
             for item in samples
-            if isinstance(item, dict) and int(item.get("delay", -1)) >= 0
+            if isinstance(item, dict)
+            and isinstance(item.get("delay"), int)
+            and int(item["delay"]) >= 0
         ]
-        if delays:
-            minimum = min(delays)
-            maximum = max(delays)
-            average = round(sum(delays) / len(delays))
-            statistics = (
-                f"min {minimum} ms · avg {average} ms · max {maximum} ms"
-            )
-        else:
+        if stats is None:
             statistics = "no successful latency samples"
+        else:
+            statistics = (
+                f"min {stats.minimum} ms · avg {stats.average} ms · "
+                f"max {stats.maximum} ms"
+            )
 
         self.history_title.setText(
             f"{group} / {proxy} · {len(samples)} recorded sample(s) · {statistics}"
