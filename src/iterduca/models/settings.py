@@ -22,6 +22,8 @@ class AppSettings:
     mode: str = DEFAULT_MODE
     system_proxy_enabled: bool = False
     startup_enabled: bool = False
+    subscription_auto_update_enabled: bool = False
+    subscription_update_interval_hours: int = 24
     tun_enabled: bool = False
     tun_stack: str = "mips"
     tun_auto_route: bool = True
@@ -40,6 +42,9 @@ class AppSettings:
         }
         values["mixed_port"] = int(values["mixed_port"])
         values["controller_port"] = int(values["controller_port"])
+        values["subscription_update_interval_hours"] = int(
+            values["subscription_update_interval_hours"]
+        )
         return cls(**values)
 
     def to_dict(self) -> dict[str, Any]:
