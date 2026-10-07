@@ -32,6 +32,7 @@ from iterduca.core.traffic import TrafficMonitor
 from iterduca.paths import AppPaths
 from iterduca.services.backup_service import BackupService
 from iterduca.services.core_locator import CoreLocator
+from iterduca.services.core_update_service import CoreRelease, CoreUpdateService
 from iterduca.services.diagnostics_service import DiagnosticsService
 from iterduca.services.history_service import HistoryService
 from iterduca.services.log_service import LogService
@@ -73,6 +74,10 @@ class UiBridge(QObject):
     dns_error = pyqtSignal(str)
     update_result = pyqtSignal(object)
     update_error = pyqtSignal(str)
+    core_release_status = pyqtSignal(object)
+    core_update_progress = pyqtSignal(int)
+    core_update_error = pyqtSignal(str)
+    core_install_done = pyqtSignal(object)
 
 
 class MainWindow(QMainWindow):
@@ -90,13 +95,20 @@ class MainWindow(QMainWindow):
         self.backup_service = BackupService(paths)
         self.diagnostics_service = DiagnosticsService(paths)
         self.update_service = UpdateService("ZJY-HSBL/Iterduca", APP_VERSION)
+        self.core_update_service = CoreUpdateService(paths.root / "core")
         self.settings = self.settings_service.load()
         self.core_locator = CoreLocator()
         if not self.settings.core_path:
-            discovered_core = self.core_locator.discover()
-            if discovered_core is not None:
-                self.settings.core_path = str(discovered_core)
+            if self.core_update_service.managed_core.is_file():
+                self.settings.core_path = str(
+                    self.core_update_service.managed_core
+                )
                 self.settings_service.save(self.settings)
+            else:
+                discovered_core = self.core_locator.discover()
+                if discovered_core is not None:
+                    self.settings.core_path = str(discovered_core)
+                    self.settings_service.save(self.settings)
         self.startup_service = StartupService()
         if self.startup_service.supported:
             self.settings.startup_enabled = self.startup_service.is_enabled()
@@ -111,6 +123,8 @@ class MainWindow(QMainWindow):
         self._system_proxy_active = False
         self._latest_traffic = (0, 0)
         self._subscription_update_inflight = False
+        self._core_update_inflight = False
+        self._latest_core_release: CoreRelease | None = None
 
         proxy_recovery_message = ""
         try:
@@ -214,6 +228,12 @@ class MainWindow(QMainWindow):
         self.settings_page.save_requested.connect(self._save_settings)
         self.settings_page.detect_core_requested.connect(self._detect_core)
         self.settings_page.check_core_requested.connect(self._check_core_version)
+        self.settings_page.check_latest_core_requested.connect(
+            self._check_latest_core
+        )
+        self.settings_page.install_latest_core_requested.connect(
+            self._install_latest_core
+        )
         self.proxies.refresh_requested.connect(self._refresh_proxies)
         self.proxies.proxy_selected.connect(self._select_proxy)
         self.proxies.latency_requested.connect(self._test_latency)
@@ -267,6 +287,12 @@ class MainWindow(QMainWindow):
         )
         self.bridge.update_result.connect(self._on_update_result)
         self.bridge.update_error.connect(self._on_update_error)
+        self.bridge.core_release_status.connect(self._on_core_release_status)
+        self.bridge.core_update_progress.connect(
+            self.settings_page.set_core_update_progress
+        )
+        self.bridge.core_update_error.connect(self._on_core_update_error)
+        self.bridge.core_install_done.connect(self._on_core_install_done)
 
     def _restore_recent_logs(self) -> None:
         for line in self.log_service.tail():
@@ -1077,6 +1103,150 @@ class MainWindow(QMainWindow):
             self.settings_page.set_core_status(version)
         except Exception as exc:
             self.settings_page.set_core_status(f"Version check failed: {exc}")
+
+    def _check_latest_core(self) -> None:
+        if self._core_update_inflight:
+            return
+        self._core_update_inflight = True
+        self.settings_page.set_core_update_busy(True)
+        self.settings_page.set_core_update_progress(0)
+        self.settings_page.set_core_update_status("Checking official Mihomo release…")
+
+        core_path = self.settings.core_file
+
+        def worker() -> None:
+            try:
+                release = self.core_update_service.latest_windows_amd64()
+                current_output = ""
+                if core_path is not None and core_path.is_file():
+                    try:
+                        current_output = self.core.version(core_path)
+                    except Exception:
+                        current_output = ""
+                current_version = self.core_update_service.parse_version_output(
+                    current_output
+                )
+                available = (
+                    current_version is None
+                    or self.core_update_service.is_newer_than_output(
+                        release,
+                        current_output,
+                    )
+                )
+                self.bridge.core_release_status.emit(
+                    (release, current_version, available)
+                )
+            except Exception as exc:
+                self.bridge.core_update_error.emit(str(exc))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_core_release_status(self, payload: object) -> None:
+        self._core_update_inflight = False
+        self.settings_page.set_core_update_busy(False)
+        if not isinstance(payload, tuple) or len(payload) != 3:
+            return
+        release, current_version, available = payload
+        if not isinstance(release, CoreRelease):
+            return
+        self._latest_core_release = release
+        if current_version:
+            state = "update available" if available else "up to date"
+            text = (
+                f"Current v{current_version} · latest v{release.version} · {state}"
+            )
+        else:
+            text = f"Latest v{release.version} · no readable current Core version"
+        self.settings_page.set_core_update_status(
+            text,
+            install_enabled=bool(available),
+        )
+
+    def _install_latest_core(self) -> None:
+        if self.core.running:
+            QMessageBox.warning(
+                self,
+                "Core update",
+                "Stop the Mihomo core before installing a managed Core update.",
+            )
+            return
+        release = self._latest_core_release
+        if release is None or self._core_update_inflight:
+            return
+
+        size_mb = release.size / (1024 * 1024)
+        answer = QMessageBox.question(
+            self,
+            "Install Mihomo Core",
+            f"Download and install official Mihomo v{release.version} "
+            f"({size_mb:.1f} MB)?\n\n"
+            "The release asset will be SHA-256 verified before installation.",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self._core_update_inflight = True
+        self.settings_page.set_core_update_busy(True)
+        self.settings_page.set_core_update_progress(0)
+        self.settings_page.set_core_update_status(
+            f"Downloading Mihomo v{release.version}…"
+        )
+
+        def worker() -> None:
+            try:
+                path = self.core_update_service.install(
+                    release,
+                    self.bridge.core_update_progress.emit,
+                )
+                version_output = self.core.version(path)
+                installed_version = (
+                    self.core_update_service.parse_version_output(version_output)
+                )
+                if installed_version != release.version:
+                    try:
+                        path.unlink()
+                    except OSError:
+                        pass
+                    try:
+                        self.core_update_service.metadata_file.unlink()
+                    except OSError:
+                        pass
+                    raise RuntimeError(
+                        "Installed Mihomo version does not match the verified release"
+                    )
+                self.bridge.core_install_done.emit(
+                    (str(path), release.version, version_output)
+                )
+            except Exception as exc:
+                self.bridge.core_update_error.emit(str(exc))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_core_install_done(self, payload: object) -> None:
+        self._core_update_inflight = False
+        self.settings_page.set_core_update_busy(False)
+        if not isinstance(payload, tuple) or len(payload) != 3:
+            return
+        path, version, version_output = payload
+        self.settings.core_path = str(path)
+        self.settings_service.save(self.settings)
+        self.settings_page.set_core_path(self.settings.core_path)
+        self.settings_page.set_core_status(str(version_output))
+        self.settings_page.set_core_update_progress(100)
+        self.settings_page.set_core_update_status(
+            f"Managed Mihomo v{version} installed and selected.",
+            install_enabled=False,
+        )
+        self._log(f"[core-update] Installed verified Mihomo v{version}.")
+
+    def _on_core_update_error(self, message: str) -> None:
+        self._core_update_inflight = False
+        self.settings_page.set_core_update_busy(False)
+        self.settings_page.set_core_update_status(
+            f"Core update failed: {message}",
+            install_enabled=self._latest_core_release is not None,
+        )
+        self._log(f"[core-update] {message}")
 
     def _refresh_tun_status(self) -> None:
         self.tun.load_settings(
