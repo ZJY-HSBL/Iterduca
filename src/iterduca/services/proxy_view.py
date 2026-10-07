@@ -1,11 +1,42 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 
 
 SORT_PROFILE = "profile"
 SORT_NAME = "name"
 SORT_LATENCY = "latency"
+
+
+@dataclass(frozen=True, slots=True)
+class LatencyStatistics:
+    minimum: int
+    average: int
+    maximum: int
+    count: int
+
+
+def latency_statistics(samples: Iterable[object]) -> LatencyStatistics | None:
+    values: list[int] = []
+    for sample in samples:
+        if not isinstance(sample, Mapping):
+            continue
+        try:
+            delay = int(sample.get("delay", -1))
+        except (TypeError, ValueError):
+            continue
+        if delay >= 0:
+            values.append(delay)
+
+    if not values:
+        return None
+    return LatencyStatistics(
+        minimum=min(values),
+        average=round(sum(values) / len(values)),
+        maximum=max(values),
+        count=len(values),
+    )
 
 
 def arrange_proxy_names(
