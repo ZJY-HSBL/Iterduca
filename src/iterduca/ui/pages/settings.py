@@ -100,6 +100,14 @@ class SettingsPage(QWidget):
         self.startup = QCheckBox("Start Iterduca with Windows")
         form.addRow("Startup", self.startup)
 
+        self.auto_start_core = QCheckBox("Start Mihomo Core when Iterduca launches")
+        form.addRow("Core startup", self.auto_start_core)
+
+        self.restart_core_on_crash = QCheckBox(
+            "Restart Mihomo after an unexpected exit (max 3 attempts / minute)"
+        )
+        form.addRow("Core recovery", self.restart_core_on_crash)
+
         self.subscription_auto_update = QCheckBox(
             "Automatically update all subscriptions"
         )
@@ -128,6 +136,8 @@ class SettingsPage(QWidget):
         self.mode.setCurrentIndex(max(0, index))
         self.system_proxy.setChecked(settings.system_proxy_enabled)
         self.startup.setChecked(settings.startup_enabled)
+        self.auto_start_core.setChecked(settings.auto_start_core)
+        self.restart_core_on_crash.setChecked(settings.restart_core_on_crash)
         self.subscription_auto_update.setChecked(
             settings.subscription_auto_update_enabled
         )
@@ -178,6 +188,8 @@ class SettingsPage(QWidget):
                 "mode": self.mode.currentText(),
                 "system_proxy_enabled": self.system_proxy.isChecked(),
                 "startup_enabled": self.startup.isChecked(),
+                "auto_start_core": self.auto_start_core.isChecked(),
+                "restart_core_on_crash": self.restart_core_on_crash.isChecked(),
                 "subscription_auto_update_enabled": (
                     self.subscription_auto_update.isChecked()
                 ),
