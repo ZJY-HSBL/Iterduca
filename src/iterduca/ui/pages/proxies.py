@@ -1,17 +1,25 @@
 from __future__ import annotations
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from iterduca.core.api import ProxyGroup
+from iterduca.services.proxy_view import (
+    SORT_LATENCY,
+    SORT_NAME,
+    SORT_PROFILE,
+    arrange_proxy_names,
+)
 from iterduca.ui.widgets.sparkline import Sparkline
 
 
@@ -21,6 +29,12 @@ class ProxiesPage(QWidget):
     latency_group_requested = pyqtSignal(str, object)
     history_requested = pyqtSignal(str, str)
     refresh_requested = pyqtSignal()
+
+    SORT_OPTIONS = {
+        "Profile order": SORT_PROFILE,
+        "Name A–Z": SORT_NAME,
+        "Latency fastest": SORT_LATENCY,
+    }
 
     def __init__(self) -> None:
         super().__init__()
@@ -36,7 +50,7 @@ class ProxiesPage(QWidget):
         controls.addWidget(QLabel("Group"))
         self.groups = QComboBox()
         self.refresh = QPushButton("Refresh")
-        self.test_latency = QPushButton("Test latency")
+        self.test_latency = QPushButton("Test selected")
         self.test_group = QPushButton("Test group")
         controls.addWidget(self.groups, 1)
         controls.addWidget(self.test_latency)
@@ -44,7 +58,24 @@ class ProxiesPage(QWidget):
         controls.addWidget(self.refresh)
         layout.addLayout(controls)
 
-        hint = QLabel("Double-click a node to select it.")
+        filter_row = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Search nodes")
+        self.sort = QComboBox()
+        self.sort.addItems(list(self.SORT_OPTIONS))
+        self.test_visible = QPushButton("Test visible")
+        filter_row.addWidget(self.search, 1)
+        filter_row.addWidget(QLabel("Sort"))
+        filter_row.addWidget(self.sort)
+        filter_row.addWidget(self.test_visible)
+        layout.addLayout(filter_row)
+
+        self.summary = QLabel("No proxy group loaded.")
+        self.summary.setObjectName("Muted")
+        self.summary.setWordWrap(True)
+        layout.addWidget(self.summary)
+
+        hint = QLabel("Double-click a visible node to select it.")
         hint.setObjectName("Muted")
         layout.addWidget(hint)
 
@@ -56,15 +87,19 @@ class ProxiesPage(QWidget):
         layout.addWidget(history_label)
         self.history_title = QLabel("Select a node to view its latency history.")
         self.history_title.setObjectName("Muted")
+        self.history_title.setWordWrap(True)
         layout.addWidget(self.history_title)
         self.latency_chart = Sparkline()
         layout.addWidget(self.latency_chart, 1)
 
         self.groups.currentIndexChanged.connect(self._show_group)
+        self.search.textChanged.connect(self._show_group)
+        self.sort.currentIndexChanged.connect(self._show_group)
         self.nodes.itemDoubleClicked.connect(self._select_current)
         self.nodes.currentRowChanged.connect(self._request_history)
         self.test_latency.clicked.connect(self._test_current)
         self.test_group.clicked.connect(self._test_group)
+        self.test_visible.clicked.connect(self._test_visible)
         self.refresh.clicked.connect(self.refresh_requested.emit)
 
         self._data: list[ProxyGroup] = []
@@ -84,25 +119,83 @@ class ProxiesPage(QWidget):
         self._show_group()
 
     def set_delay(self, group: str, proxy: str, delay: int) -> None:
-        self._delays[(group, proxy)] = delay
+        self._delays[(group, proxy)] = int(delay)
         if self.groups.currentText() == group:
             self._show_group()
 
     def _show_group(self) -> None:
+        previous = self._current()
+        group = self._current_group()
+
+        self.nodes.blockSignals(True)
         self.nodes.clear()
-        index = self.groups.currentIndex()
-        if index < 0 or index >= len(self._data):
+
+        if group is None:
+            self.nodes.blockSignals(False)
+            self.summary.setText("No proxy group loaded.")
+            self.history_title.setText("Select a node to view its latency history.")
+            self.latency_chart.clear()
             return
 
-        group = self._data[index]
-        for name in group.all:
+        delay_map = {
+            name: delay
+            for (group_name, name), delay in self._delays.items()
+            if group_name == group.name
+        }
+        sort_mode = self.SORT_OPTIONS.get(
+            self.sort.currentText(),
+            SORT_PROFILE,
+        )
+        visible = arrange_proxy_names(
+            group.all,
+            query=self.search.text(),
+            sort_mode=sort_mode,
+            delays=delay_map,
+        )
+
+        preferred = ""
+        if previous is not None and previous[0] == group.name:
+            preferred = previous[1]
+        elif group.now:
+            preferred = group.now
+
+        selected_row = -1
+        for name in visible:
+            delay = self._delays.get((group.name, name))
             parts = [name]
             if name == group.now:
-                parts.append("✓")
-            delay = self._delays.get((group.name, name))
+                parts.append("CURRENT")
             if delay is not None:
                 parts.append("timeout" if delay < 0 else f"{delay} ms")
-            self.nodes.addItem("    ".join(parts))
+
+            item = QListWidgetItem("    ".join(parts))
+            item.setData(Qt.ItemDataRole.UserRole, name)
+            self.nodes.addItem(item)
+            if name == preferred:
+                selected_row = self.nodes.count() - 1
+
+        if selected_row >= 0:
+            self.nodes.setCurrentRow(selected_row)
+        self.nodes.blockSignals(False)
+
+        tested = sum(
+            1
+            for name in group.all
+            if (group.name, name) in self._delays
+        )
+        successful = sum(
+            1
+            for name in group.all
+            if self._delays.get((group.name, name), -1) >= 0
+            and (group.name, name) in self._delays
+        )
+        current = group.now or "—"
+        kind = group.kind or "Proxy group"
+        self.summary.setText(
+            f"{kind} · Current {current} · Showing {len(visible)}/{len(group.all)} "
+            f"· Tested {tested}/{len(group.all)} · Reachable {successful}"
+        )
+        self._request_history()
 
     def _select_current(self) -> None:
         selected = self._current()
@@ -115,10 +208,20 @@ class ProxiesPage(QWidget):
             self.latency_requested.emit(*selected)
 
     def _test_group(self) -> None:
-        index = self.groups.currentIndex()
-        if 0 <= index < len(self._data):
-            group = self._data[index]
+        group = self._current_group()
+        if group is not None:
             self.latency_group_requested.emit(group.name, list(group.all))
+
+    def _test_visible(self) -> None:
+        group = self._current_group()
+        if group is None:
+            return
+        names = [
+            str(self.nodes.item(row).data(Qt.ItemDataRole.UserRole))
+            for row in range(self.nodes.count())
+        ]
+        if names:
+            self.latency_group_requested.emit(group.name, names)
 
     def set_latency_history(
         self,
@@ -131,8 +234,18 @@ class ProxiesPage(QWidget):
             for item in samples
             if isinstance(item, dict) and int(item.get("delay", -1)) >= 0
         ]
+        if delays:
+            minimum = min(delays)
+            maximum = max(delays)
+            average = round(sum(delays) / len(delays))
+            statistics = (
+                f"min {minimum} ms · avg {average} ms · max {maximum} ms"
+            )
+        else:
+            statistics = "no successful latency samples"
+
         self.history_title.setText(
-            f"{group} / {proxy} · {len(samples)} recorded sample(s)"
+            f"{group} / {proxy} · {len(samples)} recorded sample(s) · {statistics}"
         )
         self.latency_chart.set_series(delays)
 
@@ -147,12 +260,18 @@ class ProxiesPage(QWidget):
     def current_selection(self) -> tuple[str, str] | None:
         return self._current()
 
+    def _current_group(self) -> ProxyGroup | None:
+        index = self.groups.currentIndex()
+        if 0 <= index < len(self._data):
+            return self._data[index]
+        return None
+
     def _current(self) -> tuple[str, str] | None:
-        group_index = self.groups.currentIndex()
-        node_index = self.nodes.currentRow()
-        if group_index < 0 or node_index < 0:
+        group = self._current_group()
+        item = self.nodes.currentItem()
+        if group is None or item is None:
             return None
-        group = self._data[group_index]
-        if node_index >= len(group.all):
+        name = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(name, str) or not name:
             return None
-        return group.name, group.all[node_index]
+        return group.name, name
