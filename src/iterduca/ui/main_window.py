@@ -997,13 +997,14 @@ class MainWindow(QMainWindow):
         QMessageBox.warning(self, "Subscription failed", message)
 
     def _refresh_profiles(self) -> None:
-        subscription_names = {
-            item.profile_name for item in self.subscription_service.list()
+        subscriptions = {
+            item.profile_name: item.updated_at
+            for item in self.subscription_service.list()
         }
         self.profiles.set_profiles(
             self.profile_service.list_profiles(),
             self.settings.active_profile,
-            subscription_names,
+            subscriptions,
         )
 
     def _load_overrides(self) -> None:
