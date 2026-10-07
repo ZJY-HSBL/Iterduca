@@ -12,6 +12,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from iterduca.ui.widgets.sparkline import Sparkline
+
 
 def _format_bytes(value: int) -> str:
     size = float(max(0, value))
@@ -72,6 +74,19 @@ class OverviewPage(QWidget):
         traffic_layout.addWidget(self.memory, 1, 2)
         layout.addWidget(traffic)
 
+        history = QFrame()
+        history.setObjectName("Card")
+        history_layout = QVBoxLayout(history)
+        history_title = QLabel("Traffic history")
+        history_title.setObjectName("Muted")
+        history_layout.addWidget(history_title)
+        self.traffic_chart = Sparkline()
+        history_layout.addWidget(self.traffic_chart)
+        legend = QLabel("Primary: upload    Secondary: download")
+        legend.setObjectName("Muted")
+        history_layout.addWidget(legend)
+        layout.addWidget(history)
+
         mode_row = QHBoxLayout()
         mode_row.addWidget(QLabel("Routing mode"))
         self.mode = QComboBox()
@@ -109,3 +124,8 @@ class OverviewPage(QWidget):
 
     def set_memory(self, value: int) -> None:
         self.memory.setText(_format_bytes(value))
+
+    def set_traffic_history(self, samples: list[dict]) -> None:
+        up = [int(item.get("up", 0)) for item in samples if isinstance(item, dict)]
+        down = [int(item.get("down", 0)) for item in samples if isinstance(item, dict)]
+        self.traffic_chart.set_series(up, down)
