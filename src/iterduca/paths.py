@@ -17,6 +17,7 @@ class AppPaths:
     subscriptions_file: Path
     override_file: Path
     proxy_state_file: Path
+    metrics_file: Path
 
     @classmethod
     def discover(cls) -> "AppPaths":
@@ -34,6 +35,7 @@ class AppPaths:
             subscriptions_file=root / "subscriptions.json",
             override_file=root / "override.yaml",
             proxy_state_file=root / "proxy-state.json",
+            metrics_file=root / "metrics.json",
         )
 
     def ensure(self) -> None:
