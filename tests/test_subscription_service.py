@@ -7,8 +7,9 @@ from iterduca.services.subscription_service import SubscriptionService
 
 
 class FakeResponse:
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, headers: dict[str, str] | None = None) -> None:
         self.content = text.encode("utf-8")
+        self.headers = headers or {}
 
     def raise_for_status(self) -> None:
         return None
@@ -87,3 +88,46 @@ def test_forget_subscription_removes_only_metadata(
 
     assert service.list() == []
     assert profile.exists()
+
+
+def test_subscription_userinfo_is_parsed_and_persisted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse(
+            "proxies:\n  - {name: A, type: direct}\n",
+            {
+                "subscription-userinfo": (
+                    "upload=1073741824; download=2147483648; "
+                    "total=10737418240; expire=1893456000"
+                )
+            },
+        ),
+    )
+    service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
+
+    added = service.add("https://example.com/quota.yaml")
+    restored = service.list()[0]
+
+    assert added.upload_bytes == 1073741824
+    assert added.download_bytes == 2147483648
+    assert added.used_bytes == 3221225472
+    assert added.total_bytes == 10737418240
+    assert added.remaining_bytes == 7516192768
+    assert added.expire_at == 1893456000
+    assert restored == added
+
+
+def test_subscription_userinfo_ignores_invalid_values() -> None:
+    parsed = SubscriptionService._parse_userinfo(
+        "upload=bad; download=42; total=-1; expire=not-a-date; other=5"
+    )
+
+    assert parsed == {
+        "upload_bytes": 0,
+        "download_bytes": 42,
+        "total_bytes": 0,
+        "expire_at": 0,
+    }
