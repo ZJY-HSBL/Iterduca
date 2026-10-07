@@ -98,17 +98,17 @@ class MainWindow(QMainWindow):
         self.core_update_service = CoreUpdateService(paths.root / "core")
         self.settings = self.settings_service.load()
         self.core_locator = CoreLocator()
-        if not self.settings.core_path:
+        configured_core = self.settings.core_file
+        if configured_core is None or not configured_core.is_file():
+            replacement_core: Path | None = None
             if self.core_update_service.managed_core.is_file():
-                self.settings.core_path = str(
-                    self.core_update_service.managed_core
-                )
-                self.settings_service.save(self.settings)
+                replacement_core = self.core_update_service.managed_core
             else:
-                discovered_core = self.core_locator.discover()
-                if discovered_core is not None:
-                    self.settings.core_path = str(discovered_core)
-                    self.settings_service.save(self.settings)
+                replacement_core = self.core_locator.discover()
+            self.settings.core_path = (
+                str(replacement_core) if replacement_core is not None else ""
+            )
+            self.settings_service.save(self.settings)
         self.startup_service = StartupService()
         if self.startup_service.supported:
             self.settings.startup_enabled = self.startup_service.is_enabled()
