@@ -144,6 +144,8 @@ Mihomo 官方项目：https://github.com/MetaCubeX/mihomo
 
 正式版本可同时提供独立 EXE、Portable ZIP 和当前用户级 Setup 安装程序。安装程序默认安装到当前用户的本地 Programs 目录，因此安装本身无需管理员权限；只有启用 TUN 时才由 Iterduca 明确触发 UAC 提权。
 
+维护者可查看 [发布流程](docs/RELEASING.md)。从 v1.7.0 起，创建已经验证的 `release/vX.Y.Z` 分支会自动创建对应 Git Tag 并发布 GitHub Release。
+
 ## 源码运行
 
 ```powershell
