@@ -192,7 +192,7 @@ class CoreUpdateService:
         return match.group(1) if match else None
 
     @staticmethod
-    def _version_tuple(value: str) -> tuple[int, int, int] | tuple[()]:
+    def _version_tuple(value: str) -> tuple[int, ...]:
         parts = value.split(".")
         if len(parts) != 3 or not all(part.isdigit() for part in parts):
             return ()
