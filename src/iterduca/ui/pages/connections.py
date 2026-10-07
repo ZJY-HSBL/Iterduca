@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 
 from PyQt6.QtCore import Qt, pyqtSignal
+from iterduca.services.connection_view import connection_id, summarize_connections
+
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -33,6 +35,7 @@ class SortableItem(QTableWidgetItem):
 class ConnectionsPage(QWidget):
     refresh_requested = pyqtSignal()
     close_selected_requested = pyqtSignal(str)
+    close_visible_requested = pyqtSignal(object)
     close_all_requested = pyqtSignal()
 
     def __init__(self) -> None:
@@ -52,16 +55,23 @@ class ConnectionsPage(QWidget):
         self.search.textChanged.connect(self._apply_filter)
         refresh = QPushButton("Refresh")
         close_selected = QPushButton("Close selected")
+        close_visible = QPushButton("Close visible")
         close_all = QPushButton("Close all")
         close_all.setObjectName("DangerButton")
         refresh.clicked.connect(self.refresh_requested.emit)
         close_selected.clicked.connect(self._close_selected)
+        close_visible.clicked.connect(self._close_visible)
         close_all.clicked.connect(self.close_all_requested.emit)
         actions.addWidget(self.search, 1)
         actions.addWidget(refresh)
         actions.addWidget(close_selected)
+        actions.addWidget(close_visible)
         actions.addWidget(close_all)
         layout.addLayout(actions)
+
+        self.summary = QLabel("No active connections.")
+        self.summary.setObjectName("Muted")
+        layout.addWidget(self.summary)
 
         self.table = QTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(
@@ -126,9 +136,18 @@ class ConnectionsPage(QWidget):
         item = self._selected_payload()
         if item is None:
             return
-        connection_id = str(item.get("id") or "")
-        if connection_id:
-            self.close_selected_requested.emit(connection_id)
+        selected_id = connection_id(item)
+        if selected_id:
+            self.close_selected_requested.emit(selected_id)
+
+    def _close_visible(self) -> None:
+        ids = [
+            connection_id(item)
+            for item in self._visible_payloads()
+        ]
+        ids = [value for value in ids if value]
+        if ids:
+            self.close_visible_requested.emit(ids)
 
     def _show_details(self) -> None:
         item = self._selected_payload()
@@ -156,6 +175,30 @@ class ConnectionsPage(QWidget):
                 if self.table.item(row, column) is not None
             ).lower()
             self.table.setRowHidden(row, bool(query and query not in haystack))
+        self._update_summary()
+
+    def _visible_payloads(self) -> list[dict]:
+        payloads: list[dict] = []
+        for row in range(self.table.rowCount()):
+            if self.table.isRowHidden(row):
+                continue
+            first = self.table.item(row, 0)
+            if first is None:
+                continue
+            payload = first.data(Qt.ItemDataRole.UserRole)
+            if isinstance(payload, dict):
+                payloads.append(payload)
+        return payloads
+
+    def _update_summary(self) -> None:
+        visible = self._visible_payloads()
+        stats = summarize_connections(visible)
+        total = self.table.rowCount()
+        self.summary.setText(
+            f"Showing {stats.count}/{total} connection(s) · "
+            f"Upload {self._format_bytes(stats.upload)} · "
+            f"Download {self._format_bytes(stats.download)}"
+        )
 
     @staticmethod
     def _number(value: object) -> int:
