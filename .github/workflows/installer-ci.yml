@@ -7,7 +7,6 @@ on:
       - "develop/**"
     paths:
       - "pyproject.toml"
-      - "pyproject.toml"
       - "scripts/installer.iss"
       - "scripts/write_version_info.py"
       - ".github/workflows/release.yml"
@@ -15,6 +14,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "pyproject.toml"
       - "scripts/installer.iss"
       - "scripts/write_version_info.py"
       - ".github/workflows/release.yml"
