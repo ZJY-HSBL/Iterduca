@@ -33,6 +33,7 @@ from iterduca.paths import AppPaths
 from iterduca.services.backup_service import BackupService
 from iterduca.services.core_locator import CoreLocator
 from iterduca.services.diagnostics_service import DiagnosticsService
+from iterduca.services.history_service import HistoryService
 from iterduca.services.log_service import LogService
 from iterduca.services.network_service import find_port_conflicts
 from iterduca.services.override_service import OverrideService
@@ -85,6 +86,7 @@ class MainWindow(QMainWindow):
         )
         self.override_service = OverrideService(paths.override_file)
         self.log_service = LogService(paths.logs)
+        self.history_service = HistoryService(paths.metrics_file)
         self.backup_service = BackupService(paths)
         self.diagnostics_service = DiagnosticsService(paths)
         self.update_service = UpdateService("ZJY-HSBL/Iterduca", APP_VERSION)
@@ -107,6 +109,7 @@ class MainWindow(QMainWindow):
         self._controller_secret = ""
         self._force_quit = False
         self._system_proxy_active = False
+        self._latest_traffic = (0, 0)
 
         proxy_recovery_message = ""
         try:
@@ -121,6 +124,7 @@ class MainWindow(QMainWindow):
         self.resize(1080, 700)
         self.setMinimumSize(900, 580)
         self._build_ui()
+        self.overview.set_traffic_history(self.history_service.traffic())
         self._restore_recent_logs()
         if proxy_recovery_message:
             self._log(proxy_recovery_message)
@@ -212,6 +216,7 @@ class MainWindow(QMainWindow):
         self.proxies.proxy_selected.connect(self._select_proxy)
         self.proxies.latency_requested.connect(self._test_latency)
         self.proxies.latency_group_requested.connect(self._test_latency_group)
+        self.proxies.history_requested.connect(self._show_latency_history)
         self.proxy_providers.refresh_requested.connect(self._refresh_proxy_providers)
         self.proxy_providers.update_requested.connect(self._update_proxy_provider)
         self.proxy_providers.update_all_requested.connect(
@@ -245,8 +250,8 @@ class MainWindow(QMainWindow):
         self.logs.export_requested.connect(self._export_logs)
         self.logs.clear_requested.connect(self._clear_logs)
         self.bridge.log.connect(self._log)
-        self.bridge.traffic.connect(self.overview.set_traffic)
-        self.bridge.latency.connect(self.proxies.set_delay)
+        self.bridge.traffic.connect(self._on_traffic)
+        self.bridge.latency.connect(self._on_latency_result)
         self.bridge.subscription_ready.connect(self._on_subscription_ready)
         self.bridge.subscription_error.connect(self._on_subscription_error)
         self.bridge.memory.connect(self.overview.set_memory)
@@ -403,6 +408,8 @@ class MainWindow(QMainWindow):
     def _build_health_timer(self) -> None:
         self._connection_refresh_tick = 0
         self._memory_refresh_tick = 0
+        self._traffic_history_tick = 0
+        self._history_flush_tick = 0
         self._memory_request_inflight = False
         self.health_timer = QTimer(self)
         self.health_timer.setInterval(1000)
@@ -422,11 +429,26 @@ class MainWindow(QMainWindow):
 
         if self.api:
             self._memory_refresh_tick += 1
+            self._traffic_history_tick += 1
+            self._history_flush_tick += 1
+
             if self._memory_refresh_tick >= 2:
                 self._memory_refresh_tick = 0
                 self._refresh_memory()
+
+            if self._traffic_history_tick >= 5:
+                self._traffic_history_tick = 0
+                up, down = self._latest_traffic
+                self.history_service.record_traffic(up, down)
+                self.overview.set_traffic_history(self.history_service.traffic())
+
+            if self._history_flush_tick >= 30:
+                self._history_flush_tick = 0
+                self.history_service.flush()
         else:
             self._memory_refresh_tick = 0
+            self._traffic_history_tick = 0
+            self._history_flush_tick = 0
 
         if self.api and self.stack.currentWidget() is self.connections:
             self._connection_refresh_tick += 1
@@ -552,6 +574,8 @@ class MainWindow(QMainWindow):
             self.system_proxy.disable()
             self._system_proxy_active = False
         self.core.stop()
+        self.history_service.flush()
+        self._latest_traffic = (0, 0)
         self.connections.set_connections({})
         self.proxy_providers.set_providers({})
         self.rules.set_rules([])
@@ -617,6 +641,23 @@ class MainWindow(QMainWindow):
             self._refresh_proxies()
         except Exception as exc:
             QMessageBox.warning(self, "Proxy switch failed", str(exc))
+
+    def _on_traffic(self, up: int, down: int) -> None:
+        self._latest_traffic = (max(0, int(up)), max(0, int(down)))
+        self.overview.set_traffic(*self._latest_traffic)
+
+    def _on_latency_result(self, group: str, proxy: str, delay: int) -> None:
+        self.proxies.set_delay(group, proxy, delay)
+        self.history_service.record_latency(group, proxy, delay)
+        if self.proxies.current_selection() == (group, proxy):
+            self._show_latency_history(group, proxy)
+
+    def _show_latency_history(self, group: str, proxy: str) -> None:
+        self.proxies.set_latency_history(
+            group,
+            proxy,
+            self.history_service.latency(group, proxy),
+        )
 
     def _test_latency(self, group: str, proxy: str) -> None:
         if not self.api:
