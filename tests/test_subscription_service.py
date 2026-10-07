@@ -131,3 +131,26 @@ def test_subscription_userinfo_ignores_invalid_values() -> None:
         "total_bytes": 0,
         "expire_at": 0,
     }
+
+
+def test_malformed_persisted_subscription_usage_falls_back_to_zero(tmp_path: Path) -> None:
+    profiles = tmp_path / "profiles"
+    profiles.mkdir()
+    metadata = tmp_path / "subscriptions.json"
+    metadata.write_text(
+        '{"profile.yaml": {'
+        '"url": "https://example.com/sub", '
+        '"updated_at": "2026-10-07T00:00:00+00:00", '
+        '"upload_bytes": "bad", '
+        '"download_bytes": null, '
+        '"total_bytes": -99, '
+        '"expire_at": "invalid"}}',
+        encoding="utf-8",
+    )
+
+    info = SubscriptionService(profiles, metadata).list()[0]
+
+    assert info.upload_bytes == 0
+    assert info.download_bytes == 0
+    assert info.total_bytes == 0
+    assert info.expire_at == 0
