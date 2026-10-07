@@ -5,6 +5,7 @@ from iterduca.services.proxy_view import (
     SORT_NAME,
     SORT_PROFILE,
     arrange_proxy_names,
+    latency_statistics,
 )
 
 
@@ -46,3 +47,26 @@ def test_proxy_view_latency_sort_places_unavailable_last() -> None:
 def test_proxy_view_rejects_unknown_sort_mode() -> None:
     with pytest.raises(ValueError):
         arrange_proxy_names(["A"], sort_mode="mystery")
+
+
+def test_latency_statistics_ignore_timeout_and_invalid_samples() -> None:
+    stats = latency_statistics(
+        [
+            {"delay": 50},
+            {"delay": -1},
+            {"delay": 100},
+            {"delay": "bad"},
+            None,
+            {"delay": 75},
+        ]
+    )
+
+    assert stats is not None
+    assert stats.minimum == 50
+    assert stats.average == 75
+    assert stats.maximum == 100
+    assert stats.count == 3
+
+
+def test_latency_statistics_return_none_without_successful_samples() -> None:
+    assert latency_statistics([{"delay": -1}, {"delay": "bad"}]) is None
