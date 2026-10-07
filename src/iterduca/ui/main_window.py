@@ -74,6 +74,7 @@ class UiBridge(QObject):
     dns_error = pyqtSignal(str)
     update_result = pyqtSignal(object)
     update_error = pyqtSignal(str)
+    update_installer_ready = pyqtSignal(str)
     core_release_status = pyqtSignal(object)
     core_update_progress = pyqtSignal(int)
     core_update_error = pyqtSignal(str)
@@ -122,6 +123,8 @@ class MainWindow(QMainWindow):
         self._force_quit = False
         self._system_proxy_active = False
         self._latest_traffic = (0, 0)
+        self._latest_update: UpdateInfo | None = None
+        self._update_download_inflight = False
         self._subscription_update_inflight = False
         self._core_update_inflight = False
         self._latest_core_release: CoreRelease | None = None
@@ -266,6 +269,7 @@ class MainWindow(QMainWindow):
         self.tools.flush_fakeip_requested.connect(self._flush_fakeip_cache)
         self.tools.dns_query_requested.connect(self._dns_query)
         self.tools.check_update_requested.connect(self._check_for_updates)
+        self.tools.install_update_requested.connect(self._install_application_update)
         self.tools.export_backup_requested.connect(self._export_backup)
         self.tools.restore_backup_requested.connect(self._restore_backup)
         self.tools.export_diagnostics_requested.connect(self._export_diagnostics)
@@ -287,6 +291,7 @@ class MainWindow(QMainWindow):
         )
         self.bridge.update_result.connect(self._on_update_result)
         self.bridge.update_error.connect(self._on_update_error)
+        self.bridge.update_installer_ready.connect(self._on_update_installer_ready)
         self.bridge.core_release_status.connect(self._on_core_release_status)
         self.bridge.core_update_progress.connect(
             self.settings_page.set_core_update_progress
@@ -324,7 +329,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Clear logs", str(exc))
 
     def _check_for_updates(self) -> None:
-        self.tools.set_update_status("Checking GitHub Releases…")
+        self._latest_update = None
+        self.tools.set_update_status(
+            "Checking GitHub Releases…",
+            install_enabled=False,
+        )
 
         def worker() -> None:
             try:
@@ -337,19 +346,106 @@ class MainWindow(QMainWindow):
     def _on_update_result(self, result: object) -> None:
         if not isinstance(result, UpdateInfo):
             return
+        self._latest_update = result
         if result.available:
-            message = f"Update available: v{result.latest_version}"
-            if result.release_url:
-                message += f" — {result.release_url}"
-            self.tools.set_update_status(message)
+            if result.installer_url and result.checksums_url:
+                self.tools.set_update_status(
+                    f"Update available: v{result.latest_version}. "
+                    "Verified Windows Setup is available.",
+                    install_enabled=True,
+                )
+            else:
+                self.tools.set_update_status(
+                    f"Update available: v{result.latest_version}, but the release "
+                    "does not contain both Setup and SHA256SUMS.txt.",
+                    install_enabled=False,
+                )
             return
         self.tools.set_update_status(
             f"No newer release found. Current v{result.current_version}; "
-            f"latest published v{result.latest_version}."
+            f"latest published v{result.latest_version}.",
+            install_enabled=False,
         )
 
+    def _install_application_update(self) -> None:
+        info = self._latest_update
+        if info is None or not info.available:
+            self.tools.set_update_status(
+                "Check for updates before downloading.",
+                install_enabled=False,
+            )
+            return
+        if self._update_download_inflight:
+            return
+
+        answer = QMessageBox.question(
+            self,
+            "Install Iterduca update",
+            f"Download and verify Iterduca v{info.latest_version} Setup?",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self._update_download_inflight = True
+        self.tools.set_update_status(
+            f"Downloading Iterduca v{info.latest_version}…",
+            install_enabled=False,
+        )
+
+        def worker() -> None:
+            try:
+                path = self.update_service.download_verified_installer(
+                    info,
+                    self.paths.root / "updates",
+                )
+                self.bridge.update_installer_ready.emit(str(path))
+            except Exception as exc:
+                self.bridge.update_error.emit(str(exc))
+            finally:
+                self._update_download_inflight = False
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_update_installer_ready(self, path: str) -> None:
+        info = self._latest_update
+        version = info.latest_version if info is not None else "new"
+        answer = QMessageBox.question(
+            self,
+            "Install verified update",
+            f"Iterduca v{version} was downloaded and SHA-256 verified. "
+            "Install it now? Iterduca will close.",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            self.tools.set_update_status(
+                f"Verified installer saved to: {path}",
+                install_enabled=True,
+            )
+            return
+
+        try:
+            self.stop_core()
+            self._force_quit = True
+            self.tray.hide()
+            self.update_service.launch_installer(Path(path))
+            QApplication.quit()
+        except Exception as exc:
+            self.tools.set_update_status(
+                f"Unable to start installer: {exc}",
+                install_enabled=True,
+            )
+            self._log(f"[update] Unable to start installer: {exc}")
+
     def _on_update_error(self, message: str) -> None:
-        self.tools.set_update_status(f"Update check failed: {message}")
+        can_retry = bool(
+            self._latest_update
+            and self._latest_update.available
+            and self._latest_update.installer_url
+            and self._latest_update.checksums_url
+        )
+        self.tools.set_update_status(
+            f"Update failed: {message}",
+            install_enabled=can_retry,
+        )
         self._log(f"[update] {message}")
 
     def _export_backup(self) -> None:
