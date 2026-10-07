@@ -93,6 +93,7 @@ def test_update_service_selects_exact_setup_and_checksum_assets(
                             "https://github.com/ZJY-HSBL/Iterduca/releases/download/"
                             "v1.5.0/Iterduca-v1.5.0-windows-x64-setup.exe"
                         ),
+                        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     },
                     {
                         "name": "SHA256SUMS.txt",
@@ -111,6 +112,7 @@ def test_update_service_selects_exact_setup_and_checksum_assets(
     assert info.available is True
     assert info.installer_name == "Iterduca-v1.5.0-windows-x64-setup.exe"
     assert info.installer_url.endswith(info.installer_name)
+    assert info.installer_digest == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     assert info.checksums_url.endswith("SHA256SUMS.txt")
 
 
@@ -157,6 +159,7 @@ def test_verified_installer_download(tmp_path: Path, monkeypatch: pytest.MonkeyP
         release_url="https://github.com/ZJY-HSBL/Iterduca/releases/tag/v1.5.0",
         installer_name=filename,
         installer_url=f"https://github.com/releases/{filename}",
+        installer_digest=digest,
         checksums_url="https://github.com/releases/SHA256SUMS.txt",
     )
 
@@ -195,6 +198,7 @@ def test_hash_mismatch_rejects_update(
         release_url="",
         installer_name=filename,
         installer_url=f"https://github.com/releases/{filename}",
+        installer_digest="0" * 64,
         checksums_url="https://github.com/releases/SHA256SUMS.txt",
     )
     monkeypatch.setattr(
@@ -236,3 +240,34 @@ def test_update_service_handles_no_release(monkeypatch: pytest.MonkeyPatch) -> N
 def test_update_service_rejects_non_semver() -> None:
     with pytest.raises(ValueError):
         UpdateService._version_tuple("nightly")
+
+
+def test_release_asset_digest_must_match_checksum_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    filename = "Iterduca-v1.5.0-windows-x64-setup.exe"
+    manifest_digest = "1" * 64
+    info = UpdateInfo(
+        current_version="1.4.0",
+        latest_version="1.5.0",
+        available=True,
+        release_url="",
+        installer_name=filename,
+        installer_url=f"https://github.com/releases/{filename}",
+        installer_digest="2" * 64,
+        checksums_url="https://github.com/releases/SHA256SUMS.txt",
+    )
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse(
+            200,
+            content=f"{manifest_digest}  {filename}\n".encode(),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="does not match SHA256SUMS"):
+        UpdateService("ZJY-HSBL/Iterduca", "1.4.0").download_verified_installer(
+            info,
+            tmp_path,
+        )
