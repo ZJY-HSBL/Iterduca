@@ -18,6 +18,7 @@ class UpdateInfo:
     release_url: str
     installer_name: str = ""
     installer_url: str = ""
+    installer_digest: str = ""
     checksums_url: str = ""
 
 
@@ -59,6 +60,7 @@ class UpdateService:
 
         installer_name = f"Iterduca-v{latest}-windows-x64-setup.exe"
         installer_url = ""
+        installer_digest = ""
         checksums_url = ""
         assets = payload.get("assets", [])
         if isinstance(assets, list):
@@ -69,6 +71,9 @@ class UpdateService:
                 url = str(item.get("browser_download_url", ""))
                 if name == installer_name:
                     installer_url = self._validated_download_url(url)
+                    installer_digest = self._normalized_asset_digest(
+                        str(item.get("digest", ""))
+                    )
                 elif name == "SHA256SUMS.txt":
                     checksums_url = self._validated_download_url(url)
 
@@ -82,6 +87,7 @@ class UpdateService:
             release_url=release_url,
             installer_name=installer_name if installer_url else "",
             installer_url=installer_url,
+            installer_digest=installer_digest,
             checksums_url=checksums_url,
         )
 
@@ -94,6 +100,8 @@ class UpdateService:
             raise ValueError("No newer Iterduca release is available")
         if not info.installer_name or not info.installer_url:
             raise ValueError("Latest release does not contain the Windows Setup installer")
+        if not info.installer_digest:
+            raise ValueError("Latest release does not provide the installer SHA-256 digest")
         if not info.checksums_url:
             raise ValueError("Latest release does not contain SHA256SUMS.txt")
 
@@ -101,6 +109,11 @@ class UpdateService:
             info.checksums_url,
             info.installer_name,
         )
+
+        if expected != info.installer_digest:
+            raise ValueError(
+                "GitHub Release digest does not match SHA256SUMS.txt"
+            )
 
         directory.mkdir(parents=True, exist_ok=True)
         target = directory / info.installer_name
@@ -181,6 +194,19 @@ class UpdateService:
             "Accept": "application/vnd.github+json",
             "User-Agent": f"Iterduca/{self.current_version}",
         }
+
+    @staticmethod
+    def _normalized_asset_digest(value: str) -> str:
+        prefix = "sha256:"
+        normalized = value.strip().lower()
+        if not normalized.startswith(prefix):
+            return ""
+        digest = normalized.removeprefix(prefix)
+        if len(digest) != 64 or any(
+            char not in "0123456789abcdef" for char in digest
+        ):
+            return ""
+        return digest
 
     @staticmethod
     def _validated_download_url(url: str) -> str:
