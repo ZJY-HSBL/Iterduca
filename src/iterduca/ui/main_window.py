@@ -260,6 +260,7 @@ class MainWindow(QMainWindow):
         )
         self.connections.refresh_requested.connect(self._refresh_connections)
         self.connections.close_selected_requested.connect(self._close_connection)
+        self.connections.close_visible_requested.connect(self._close_visible_connections)
         self.connections.close_all_requested.connect(self._close_all_connections)
         self.rules.refresh_requested.connect(self._refresh_rules)
         self.rules.toggle_requested.connect(self._toggle_rule)
@@ -1042,6 +1043,20 @@ class MainWindow(QMainWindow):
             self._refresh_connections()
         except Exception as exc:
             QMessageBox.warning(self, "Close connection failed", str(exc))
+
+    def _close_visible_connections(self, connection_ids: object) -> None:
+        if not self.api or not isinstance(connection_ids, list):
+            return
+        ids = [str(value) for value in connection_ids if str(value)]
+        if not ids:
+            return
+        try:
+            for connection_id in ids:
+                self.api.close_connection(connection_id)
+            self._log(f"[connections] Closed {len(ids)} visible connection(s).")
+            self._refresh_connections()
+        except Exception as exc:
+            QMessageBox.warning(self, "Close connections failed", str(exc))
 
     def _close_all_connections(self) -> None:
         if not self.api:
