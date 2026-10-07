@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QProgressBar,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -22,6 +23,8 @@ class SettingsPage(QWidget):
     save_requested = pyqtSignal(object)
     detect_core_requested = pyqtSignal()
     check_core_requested = pyqtSignal(str)
+    check_latest_core_requested = pyqtSignal()
+    install_latest_core_requested = pyqtSignal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -51,6 +54,31 @@ class SettingsPage(QWidget):
         self.core_status = QLabel("Core version not checked")
         self.core_status.setObjectName("Muted")
         form.addRow("Core status", self.core_status)
+
+        core_update_row = QHBoxLayout()
+        self.check_latest_core = QPushButton("Check latest Mihomo")
+        self.install_latest_core = QPushButton("Install verified core")
+        self.install_latest_core.setEnabled(False)
+        self.check_latest_core.clicked.connect(
+            self.check_latest_core_requested.emit
+        )
+        self.install_latest_core.clicked.connect(
+            self.install_latest_core_requested.emit
+        )
+        core_update_row.addWidget(self.check_latest_core)
+        core_update_row.addWidget(self.install_latest_core)
+        form.addRow("Core manager", core_update_row)
+
+        self.core_update_status = QLabel("Latest Mihomo release not checked")
+        self.core_update_status.setObjectName("Muted")
+        self.core_update_status.setWordWrap(True)
+        form.addRow("Latest release", self.core_update_status)
+
+        self.core_update_progress = QProgressBar()
+        self.core_update_progress.setRange(0, 100)
+        self.core_update_progress.setValue(0)
+        self.core_update_progress.setTextVisible(True)
+        form.addRow("Download", self.core_update_progress)
 
         self.mixed_port = QSpinBox()
         self.mixed_port.setRange(1024, 65535)
@@ -111,6 +139,24 @@ class SettingsPage(QWidget):
 
     def set_core_path(self, path: str) -> None:
         self.core_path.setText(path)
+
+    def set_core_update_status(
+        self,
+        text: str,
+        *,
+        install_enabled: bool = False,
+    ) -> None:
+        self.core_update_status.setText(text)
+        self.install_latest_core.setEnabled(install_enabled)
+
+    def set_core_update_progress(self, value: int) -> None:
+        self.core_update_progress.setValue(max(0, min(100, int(value))))
+
+    def set_core_update_busy(self, busy: bool) -> None:
+        self.check_latest_core.setEnabled(not busy)
+        self.install_latest_core.setEnabled(
+            not busy and self.install_latest_core.isEnabled()
+        )
 
     def _pick_core(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Select Mihomo executable")
