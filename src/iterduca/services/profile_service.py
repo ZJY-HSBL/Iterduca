@@ -13,6 +13,11 @@ class ProfileInfo:
     name: str
     path: Path
     proxy_count: int
+    group_count: int
+    rule_count: int
+    proxy_provider_count: int
+    rule_provider_count: int
+    size_bytes: int
 
 
 class ProfileService:
@@ -61,8 +66,21 @@ class ProfileService:
     @staticmethod
     def _info(path: Path, data: dict) -> ProfileInfo:
         proxies = data.get("proxies", [])
+        groups = data.get("proxy-groups", [])
+        rules = data.get("rules", [])
+        proxy_providers = data.get("proxy-providers", {})
+        rule_providers = data.get("rule-providers", {})
         return ProfileInfo(
             name=path.name,
             path=path,
             proxy_count=len(proxies) if isinstance(proxies, list) else 0,
+            group_count=len(groups) if isinstance(groups, list) else 0,
+            rule_count=len(rules) if isinstance(rules, list) else 0,
+            proxy_provider_count=(
+                len(proxy_providers) if isinstance(proxy_providers, dict) else 0
+            ),
+            rule_provider_count=(
+                len(rule_providers) if isinstance(rule_providers, dict) else 0
+            ),
+            size_bytes=path.stat().st_size,
         )
