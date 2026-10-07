@@ -144,6 +144,9 @@ class ProxiesPage(QWidget):
             self.history_title.setText("Select a node to view its latency history.")
             self.latency_chart.clear()
 
+    def current_selection(self) -> tuple[str, str] | None:
+        return self._current()
+
     def _current(self) -> tuple[str, str] | None:
         group_index = self.groups.currentIndex()
         node_index = self.nodes.currentRow()
