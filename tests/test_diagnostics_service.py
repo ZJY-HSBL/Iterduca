@@ -47,6 +47,10 @@ def test_diagnostics_excludes_sensitive_files_and_raw_logs(tmp_path: Path) -> No
     settings = AppSettings(
         core_path="C:/private/path/mihomo.exe",
         active_profile="profile.yaml",
+        auto_start_core=True,
+        restart_core_on_crash=True,
+        subscription_auto_update_enabled=True,
+        subscription_update_interval_hours=12,
     )
     DiagnosticsService(paths).export(destination, settings)
 
@@ -60,4 +64,8 @@ def test_diagnostics_excludes_sensitive_files_and_raw_logs(tmp_path: Path) -> No
     assert "profile.yaml" not in raw
     assert payload["settings"]["core_path_set"] is True
     assert payload["settings"]["active_profile_set"] is True
+    assert payload["settings"]["auto_start_core"] is True
+    assert payload["settings"]["restart_core_on_crash"] is True
+    assert payload["settings"]["subscription_auto_update_enabled"] is True
+    assert payload["settings"]["subscription_update_interval_hours"] == 12
     assert payload["log_inventory"][0]["name"] == "iterduca.log"
