@@ -104,7 +104,7 @@ jobs:
           body: |
             Windows-first desktop proxy and network routing client powered by Mihomo.
 
-            Mihomo is not bundled with Iterduca. Select your Mihomo executable in Settings after launch.
+            Mihomo is not embedded in the Iterduca package. Install a verified official Windows x64 Core with Iterduca's built-in Core Manager, or select your own external Mihomo executable in Settings.
           files: |
             Iterduca-${{ env.RELEASE_TAG }}-windows-x64.exe
             Iterduca-${{ env.RELEASE_TAG }}-windows-x64.zip
