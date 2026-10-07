@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import pyqtSignal
@@ -16,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from iterduca.services.profile_service import ProfileInfo
+from iterduca.services.subscription_service import SubscriptionInfo
 
 
 class ProfilesPage(QWidget):
@@ -86,13 +88,13 @@ class ProfilesPage(QWidget):
         self.use_button.clicked.connect(self._activate)
 
         self._profiles: list[ProfileInfo] = []
-        self._subscriptions: dict[str, str] = {}
+        self._subscriptions: dict[str, SubscriptionInfo] = {}
 
     def set_profiles(
         self,
         profiles: list[ProfileInfo],
         active: str,
-        subscriptions: dict[str, str] | None = None,
+        subscriptions: dict[str, SubscriptionInfo] | None = None,
     ) -> None:
         self._profiles = profiles
         self._subscriptions = subscriptions or {}
@@ -105,8 +107,16 @@ class ProfilesPage(QWidget):
                 f"{profile.proxy_count} proxies",
                 f"{profile.rule_count} rules",
             ]
-            if profile.name in self._subscriptions:
+            subscription = self._subscriptions.get(profile.name)
+            if subscription is not None:
                 parts.append("SUBSCRIPTION")
+                if subscription.total_bytes > 0:
+                    parts.append(
+                        f"{self._format_size(subscription.used_bytes)} / "
+                        f"{self._format_size(subscription.total_bytes)}"
+                    )
+                if self._expires_soon(subscription):
+                    parts.append("EXPIRES SOON")
             if profile.name == active:
                 parts.append("ACTIVE")
                 active_row = index
@@ -138,7 +148,7 @@ class ProfilesPage(QWidget):
             return
 
         profile = self._profiles[row]
-        updated = self._subscriptions.get(profile.name)
+        subscription = self._subscriptions.get(profile.name)
         parts = [
             f"Nodes {profile.proxy_count}",
             f"Groups {profile.group_count}",
@@ -147,8 +157,19 @@ class ProfilesPage(QWidget):
             f"Rule Providers {profile.rule_provider_count}",
             f"Size {self._format_size(profile.size_bytes)}",
         ]
-        if updated:
-            parts.append(f"Subscription updated {updated}")
+        if subscription is not None:
+            parts.append(f"Subscription updated {subscription.updated_at}")
+            if subscription.total_bytes > 0:
+                parts.append(
+                    f"Used {self._format_size(subscription.used_bytes)} / "
+                    f"{self._format_size(subscription.total_bytes)}"
+                )
+                parts.append(
+                    f"Remaining {self._format_size(subscription.remaining_bytes)}"
+                )
+            if subscription.expire_at > 0:
+                expiry = datetime.fromtimestamp(subscription.expire_at).astimezone()
+                parts.append(f"Expires {expiry:%Y-%m-%d %H:%M}")
         self.details.setText("  ·  ".join(parts))
 
     def _pick_file(self) -> None:
@@ -195,8 +216,15 @@ class ProfilesPage(QWidget):
     @staticmethod
     def _format_size(value: int) -> str:
         size = float(max(0, value))
-        for unit in ("B", "KB", "MB"):
-            if size < 1024 or unit == "MB":
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if size < 1024 or unit == "TB":
                 return f"{size:.1f} {unit}"
             size /= 1024
         return "0 B"
+
+    @staticmethod
+    def _expires_soon(subscription: SubscriptionInfo) -> bool:
+        if subscription.expire_at <= 0:
+            return False
+        seconds_left = subscription.expire_at - int(datetime.now().timestamp())
+        return 0 <= seconds_left <= 7 * 24 * 60 * 60
