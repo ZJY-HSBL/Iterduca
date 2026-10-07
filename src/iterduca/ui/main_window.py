@@ -578,6 +578,7 @@ class MainWindow(QMainWindow):
         if has_runtime_state and not self.core.running:
             should_restart = self.settings.restart_core_on_crash
             self._log("[core] Mihomo exited unexpectedly; runtime state restored.")
+            self._notify("Mihomo Core exited", "Iterduca restored the owned runtime state.")
             self.stop_core()
             if should_restart:
                 self._schedule_core_restart()
@@ -654,6 +655,15 @@ class MainWindow(QMainWindow):
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self._show_from_tray()
 
+    def _notify(self, title: str, message: str) -> None:
+        if hasattr(self, "tray") and QSystemTrayIcon.isSystemTrayAvailable():
+            self.tray.showMessage(
+                title,
+                message,
+                QSystemTrayIcon.MessageIcon.Information,
+                5000,
+            )
+
     def _show_from_tray(self) -> None:
         self.showNormal()
         self.activateWindow()
@@ -683,9 +693,9 @@ class MainWindow(QMainWindow):
         if self._restart_scheduled or not self.settings.restart_core_on_crash:
             return
         if not self._restart_policy.allow():
-            self._log(
-                "[core] Automatic restart suppressed after 3 attempts within 60 seconds."
-            )
+            message = "Automatic restart suppressed after 3 attempts within 60 seconds."
+            self._log(f"[core] {message}")
+            self._notify("Core recovery paused", message)
             return
         self._restart_scheduled = True
         remaining = self._restart_policy.remaining()
@@ -693,6 +703,7 @@ class MainWindow(QMainWindow):
             "[core] Scheduling automatic restart in 3 seconds "
             f"({remaining} attempt(s) remain in the current window)."
         )
+        self._notify("Core recovery", "Restarting Mihomo in 3 seconds.")
         QTimer.singleShot(3000, self._restart_core_after_crash)
 
     def _restart_core_after_crash(self) -> None:
@@ -762,6 +773,7 @@ class MainWindow(QMainWindow):
             self._refresh_tun_status()
             if not interactive:
                 self._log(f"[core] Mihomo Core started by {source}.")
+                self._notify("Mihomo Core running", f"Started by {source}.")
             return True
         except Exception as exc:
             self.stop_core()
@@ -770,6 +782,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Unable to start", str(exc))
             else:
                 self._log(f"[core] {source} failed: {exc}")
+                self._notify("Mihomo Core start failed", str(exc))
             return False
 
     def stop_core(self) -> None:
