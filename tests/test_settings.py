@@ -10,6 +10,8 @@ def test_settings_round_trip(tmp_path: Path) -> None:
         core_path="C:/mihomo.exe",
         active_profile="main.yaml",
         mixed_port=7897,
+        auto_start_core=True,
+        restart_core_on_crash=True,
         subscription_auto_update_enabled=True,
         subscription_update_interval_hours=12,
     )
@@ -49,3 +51,10 @@ def test_subscription_update_interval_is_clamped(tmp_path: Path) -> None:
     loaded = SettingsService(path).load()
 
     assert loaded.subscription_update_interval_hours == 168
+
+
+def test_core_startup_preferences_default_off() -> None:
+    settings = AppSettings()
+
+    assert settings.auto_start_core is False
+    assert settings.restart_core_on_crash is False
