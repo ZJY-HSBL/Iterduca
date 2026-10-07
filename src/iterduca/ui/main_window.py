@@ -39,6 +39,7 @@ from iterduca.services.log_service import LogService
 from iterduca.services.network_service import find_port_conflicts
 from iterduca.services.override_service import OverrideService
 from iterduca.services.profile_service import ProfileService
+from iterduca.services.restart_policy import CoreRestartPolicy
 from iterduca.services.settings_service import SettingsService
 from iterduca.services.subscription_service import SubscriptionService
 from iterduca.services.update_service import UpdateInfo, UpdateService
@@ -128,6 +129,11 @@ class MainWindow(QMainWindow):
         self._subscription_update_inflight = False
         self._core_update_inflight = False
         self._latest_core_release: CoreRelease | None = None
+        self._restart_policy = CoreRestartPolicy(
+            max_attempts=3,
+            window_seconds=60,
+        )
+        self._restart_scheduled = False
 
         proxy_recovery_message = ""
         try:
@@ -155,6 +161,8 @@ class MainWindow(QMainWindow):
         self._refresh_tun_status()
         self._build_health_timer()
         self._build_subscription_timer()
+        if self.settings.auto_start_core:
+            QTimer.singleShot(300, self._auto_start_core)
 
     def _build_ui(self) -> None:
         root = QWidget()
@@ -568,8 +576,11 @@ class MainWindow(QMainWindow):
             or self._system_proxy_active
         )
         if has_runtime_state and not self.core.running:
+            should_restart = self.settings.restart_core_on_crash
             self._log("[core] Mihomo exited unexpectedly; runtime state restored.")
             self.stop_core()
+            if should_restart:
+                self._schedule_core_restart()
             return
 
         if self.api:
@@ -611,22 +622,33 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         show_action = QAction("Show Iterduca", self)
         show_action.triggered.connect(self._show_from_tray)
-        start_action = QAction("Start core", self)
-        start_action.triggered.connect(self.start_core)
-        stop_action = QAction("Stop core", self)
-        stop_action.triggered.connect(self.stop_core)
+        self.tray_start_action = QAction("Start core", self)
+        self.tray_start_action.triggered.connect(self.start_core)
+        self.tray_stop_action = QAction("Stop core", self)
+        self.tray_stop_action.triggered.connect(self.stop_core)
         quit_action = QAction("Quit", self)
         quit_action.triggered.connect(self._quit_from_tray)
         menu.addAction(show_action)
         menu.addSeparator()
-        menu.addAction(start_action)
-        menu.addAction(stop_action)
+        menu.addAction(self.tray_start_action)
+        menu.addAction(self.tray_stop_action)
         menu.addSeparator()
         menu.addAction(quit_action)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(self._on_tray_activated)
+        self._set_tray_running(False)
         if QSystemTrayIcon.isSystemTrayAvailable():
             self.tray.show()
+
+    def _set_tray_running(self, running: bool) -> None:
+        if not hasattr(self, "tray"):
+            return
+        state = "Core running" if running else "Core stopped"
+        self.tray.setToolTip(f"Iterduca — {state}")
+        if hasattr(self, "tray_start_action"):
+            self.tray_start_action.setEnabled(not running)
+        if hasattr(self, "tray_stop_action"):
+            self.tray_stop_action.setEnabled(running)
 
     def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
@@ -649,12 +671,44 @@ class MainWindow(QMainWindow):
             button.setChecked(i == index)
 
     def start_core(self) -> None:
-        if self.core.running:
+        self._start_core(interactive=True, source="manual")
+
+    def _auto_start_core(self) -> None:
+        if not self.settings.auto_start_core or self.core.running:
             return
+        self._log("[core] Auto-starting Mihomo Core.")
+        self._start_core(interactive=False, source="auto-start")
+
+    def _schedule_core_restart(self) -> None:
+        if self._restart_scheduled or not self.settings.restart_core_on_crash:
+            return
+        if not self._restart_policy.allow():
+            self._log(
+                "[core] Automatic restart suppressed after 3 attempts within 60 seconds."
+            )
+            return
+        self._restart_scheduled = True
+        remaining = self._restart_policy.remaining()
+        self._log(
+            "[core] Scheduling automatic restart in 3 seconds "
+            f"({remaining} attempt(s) remain in the current window)."
+        )
+        QTimer.singleShot(3000, self._restart_core_after_crash)
+
+    def _restart_core_after_crash(self) -> None:
+        self._restart_scheduled = False
+        if not self.settings.restart_core_on_crash or self.core.running:
+            return
+        self._start_core(interactive=False, source="crash recovery")
+
+    def _start_core(self, *, interactive: bool, source: str) -> bool:
+        if self.core.running:
+            self._set_tray_running(True)
+            return True
         try:
             executable = self.settings.core_file
             if executable is None:
-                raise RuntimeError("Select the Mihomo executable in Settings first.")
+                raise RuntimeError("Select or install a Mihomo executable in Settings first.")
             if not self.settings.active_profile:
                 raise RuntimeError("Import and activate a profile first.")
             if self.settings.tun_enabled and not is_elevated():
@@ -702,11 +756,19 @@ class MainWindow(QMainWindow):
                 f"{self.settings.mode.upper()}"
             )
             self.overview.set_running(True, detail)
+            self._set_tray_running(True)
             self._refresh_tun_status()
+            if not interactive:
+                self._log(f"[core] Mihomo Core started by {source}.")
+            return True
         except Exception as exc:
             self.stop_core()
             self.overview.set_running(False, str(exc))
-            QMessageBox.critical(self, "Unable to start", str(exc))
+            if interactive:
+                QMessageBox.critical(self, "Unable to start", str(exc))
+            else:
+                self._log(f"[core] {source} failed: {exc}")
+            return False
 
     def stop_core(self) -> None:
         if self.traffic_monitor:
@@ -728,6 +790,7 @@ class MainWindow(QMainWindow):
         self.overview.set_traffic(0, 0)
         self.overview.set_memory(0)
         self.overview.set_running(False)
+        self._set_tray_running(False)
         self._refresh_tun_status()
 
     def _wait_for_controller(self) -> None:
@@ -1416,6 +1479,8 @@ class MainWindow(QMainWindow):
         self.settings.mode = str(values["mode"])
         requested_proxy = bool(values["system_proxy_enabled"])
         requested_startup = bool(values["startup_enabled"])
+        self.settings.auto_start_core = bool(values["auto_start_core"])
+        self.settings.restart_core_on_crash = bool(values["restart_core_on_crash"])
         self.settings.subscription_auto_update_enabled = bool(
             values["subscription_auto_update_enabled"]
         )
