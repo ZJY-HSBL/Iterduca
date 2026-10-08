@@ -6,11 +6,13 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPushButton,
     QProgressBar,
+    QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -30,13 +32,35 @@ class SettingsPage(QWidget):
         super().__init__()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(12)
+
         title = QLabel("Settings")
         title.setObjectName("Title")
         layout.addWidget(title)
+        subtitle = QLabel(
+            "Core, network, automation, and window behavior."
+        )
+        subtitle.setObjectName("Muted")
+        layout.addWidget(subtitle)
 
-        form = QFormLayout()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+
+        content = QWidget()
+        body = QVBoxLayout(content)
+        body.setContentsMargins(0, 4, 8, 4)
+        body.setSpacing(14)
+
+        core_card, core_box = self._section(
+            "Mihomo Core",
+            "Use the managed verified Core or select an external executable.",
+        )
+        core_form = self._form()
+
         core_row = QHBoxLayout()
         self.core_path = QLineEdit()
+        self.core_path.setPlaceholderText("Select or install Mihomo")
         browse = QPushButton("Browse")
         detect = QPushButton("Detect")
         check = QPushButton("Version")
@@ -49,14 +73,15 @@ class SettingsPage(QWidget):
         core_row.addWidget(browse)
         core_row.addWidget(detect)
         core_row.addWidget(check)
-        form.addRow("Mihomo executable", core_row)
+        core_form.addRow("Executable", core_row)
 
         self.core_status = QLabel("Core version not checked")
         self.core_status.setObjectName("Muted")
-        form.addRow("Core status", self.core_status)
+        self.core_status.setWordWrap(True)
+        core_form.addRow("Status", self.core_status)
 
         core_update_row = QHBoxLayout()
-        self.check_latest_core = QPushButton("Check latest Mihomo")
+        self.check_latest_core = QPushButton("Check latest")
         self.install_latest_core = QPushButton("Install verified core")
         self._core_install_available = False
         self._core_update_busy = False
@@ -69,64 +94,125 @@ class SettingsPage(QWidget):
         )
         core_update_row.addWidget(self.check_latest_core)
         core_update_row.addWidget(self.install_latest_core)
-        form.addRow("Core manager", core_update_row)
+        core_form.addRow("Core manager", core_update_row)
 
         self.core_update_status = QLabel("Latest Mihomo release not checked")
         self.core_update_status.setObjectName("Muted")
         self.core_update_status.setWordWrap(True)
-        form.addRow("Latest release", self.core_update_status)
+        core_form.addRow("Latest release", self.core_update_status)
 
         self.core_update_progress = QProgressBar()
         self.core_update_progress.setRange(0, 100)
         self.core_update_progress.setValue(0)
         self.core_update_progress.setTextVisible(True)
-        form.addRow("Download", self.core_update_progress)
+        core_form.addRow("Download", self.core_update_progress)
+        core_box.addLayout(core_form)
+        body.addWidget(core_card)
+
+        network_card, network_box = self._section(
+            "Network",
+            "Local controller ports and the default routing behavior.",
+        )
+        network_form = self._form()
 
         self.mixed_port = QSpinBox()
         self.mixed_port.setRange(1024, 65535)
-        form.addRow("Mixed port", self.mixed_port)
+        network_form.addRow("Mixed port", self.mixed_port)
 
         self.controller_port = QSpinBox()
         self.controller_port.setRange(1024, 65535)
-        form.addRow("Controller port", self.controller_port)
+        network_form.addRow("Controller port", self.controller_port)
 
         self.mode = QComboBox()
         self.mode.addItems(["rule", "global", "direct"])
-        form.addRow("Mode", self.mode)
+        network_form.addRow("Routing mode", self.mode)
 
-        self.system_proxy = QCheckBox("Enable Windows system proxy while core is running")
-        form.addRow("System proxy", self.system_proxy)
+        self.system_proxy = QCheckBox(
+            "Enable Windows system proxy while the Core is running"
+        )
+        network_form.addRow("System proxy", self.system_proxy)
+        network_box.addLayout(network_form)
+        body.addWidget(network_card)
+
+        automation_card, automation_box = self._section(
+            "Automation",
+            "Startup, recovery, and subscription refresh behavior.",
+        )
+        automation_form = self._form()
 
         self.startup = QCheckBox("Start Iterduca with Windows")
-        form.addRow("Startup", self.startup)
+        automation_form.addRow("Startup", self.startup)
 
-        self.auto_start_core = QCheckBox("Start Mihomo Core when Iterduca launches")
-        form.addRow("Core startup", self.auto_start_core)
+        self.auto_start_core = QCheckBox(
+            "Start Mihomo Core when Iterduca launches"
+        )
+        automation_form.addRow("Core startup", self.auto_start_core)
 
         self.restart_core_on_crash = QCheckBox(
-            "Restart Mihomo after an unexpected exit (max 3 attempts / minute)"
+            "Restart after an unexpected exit (max 3 attempts / minute)"
         )
-        form.addRow("Core recovery", self.restart_core_on_crash)
+        automation_form.addRow("Core recovery", self.restart_core_on_crash)
 
         self.subscription_auto_update = QCheckBox(
             "Automatically update all subscriptions"
         )
-        form.addRow("Subscriptions", self.subscription_auto_update)
+        automation_form.addRow("Subscriptions", self.subscription_auto_update)
 
         self.subscription_interval = QSpinBox()
         self.subscription_interval.setRange(1, 168)
         self.subscription_interval.setSuffix(" h")
-        form.addRow("Update interval", self.subscription_interval)
+        automation_form.addRow("Update interval", self.subscription_interval)
+        automation_box.addLayout(automation_form)
+        body.addWidget(automation_card)
 
-        self.minimize_to_tray = QCheckBox("Close button minimizes Iterduca to the system tray")
-        form.addRow("Window behavior", self.minimize_to_tray)
-        layout.addLayout(form)
+        window_card, window_box = self._section(
+            "Window",
+            "Choose how Iterduca behaves when the main window is closed.",
+        )
+        window_form = self._form()
+        self.minimize_to_tray = QCheckBox(
+            "Close button minimizes Iterduca to the system tray"
+        )
+        window_form.addRow("Close behavior", self.minimize_to_tray)
+        window_box.addLayout(window_form)
+        body.addWidget(window_card)
+        body.addStretch(1)
+
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
 
         save = QPushButton("Save settings")
         save.setObjectName("PrimaryButton")
+        save.setMinimumHeight(38)
         save.clicked.connect(self._save)
         layout.addWidget(save)
-        layout.addStretch(1)
+
+    @staticmethod
+    def _section(title: str, hint: str) -> tuple[QFrame, QVBoxLayout]:
+        card = QFrame()
+        card.setObjectName("Card")
+        box = QVBoxLayout(card)
+        box.setContentsMargins(18, 15, 18, 16)
+        box.setSpacing(8)
+
+        heading = QLabel(title)
+        heading.setObjectName("SectionTitle")
+        box.addWidget(heading)
+
+        description = QLabel(hint)
+        description.setObjectName("Muted")
+        description.setWordWrap(True)
+        box.addWidget(description)
+        return card, box
+
+    @staticmethod
+    def _form() -> QFormLayout:
+        form = QFormLayout()
+        form.setContentsMargins(0, 4, 0, 0)
+        form.setHorizontalSpacing(18)
+        form.setVerticalSpacing(9)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        return form
 
     def load_settings(self, settings: AppSettings) -> None:
         self.core_path.setText(settings.core_path)
