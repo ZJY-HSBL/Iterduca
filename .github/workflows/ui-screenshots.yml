@@ -1,0 +1,37 @@
+name: UI Screenshots
+
+on:
+  push:
+    branches:
+      - "develop/**"
+    paths:
+      - "src/iterduca/ui/**"
+      - "scripts/capture_screenshots.py"
+      - ".github/workflows/ui-screenshots.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install application
+        run: python -m pip install -e .
+      - name: Capture real Qt pages
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python scripts/capture_screenshots.py
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: iterduca-ui-screenshots
+          path: docs/screenshots/*.png
+          if-no-files-found: error
+          retention-days: 30
