@@ -4,6 +4,29 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.8.0] - 2026-10-08
+
+### Added
+
+- Visible Connections summary with filtered count and aggregate upload/download bytes.
+- Close-visible action using stable connection IDs.
+- Confirmation dialogs for Close visible and Close all.
+- Pure connection summary helpers with regression tests.
+- Grouped Core / Inspect / System / App navigation.
+- Real Windows PyQt6 screenshot generation with deterministic, privacy-safe demo data.
+- Automatic screenshot artifact upload and repository refresh under `docs/screenshots/`.
+- README interface previews backed by real application screenshots.
+
+### Changed
+
+- Refined the dark visual system across navigation, cards, tables, inputs, buttons, progress bars, and scrollbars.
+- Increased the default desktop layout to 1220×780 and sidebar width to 208 px for clearer hierarchy.
+- Reorganized Settings into Mihomo Core, Network, Automation, and Window cards.
+- Connection destructive actions now require explicit confirmation.
+- Screenshot capture uses the native Windows Qt platform so text renders correctly.
+- Screenshot bot rebases before pushing to tolerate concurrent documentation updates.
+- Version metadata and bilingual documentation updated for v1.8.0.
+
 ## [1.7.0] - 2026-10-08
 
 ### Added

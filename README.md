@@ -24,7 +24,7 @@ The screenshots below are captured from the real PyQt6 application on a Windows 
 
 Iterduca is a Windows-first desktop proxy and network routing client built with Python and PyQt6. It uses Mihomo as an external routing core and keeps the desktop application, profile management, runtime configuration, system integration, and core process lifecycle clearly separated.
 
-> Current version: **v1.7.0**
+> Current version: **v1.8.0**
 
 [中文说明](README.zh-CN.md)
 
@@ -34,7 +34,7 @@ Iterduca is not a fork or a reskin of another desktop client. The application la
 
 The name **Iterduca** comes from the Latin idea of guiding a journey: each connection is guided through the appropriate route to its destination.
 
-## v1.7.0 features
+## v1.8.0 features
 
 - PyQt6 desktop interface with a compact dark UI
 - Imported YAML profile management
@@ -125,6 +125,14 @@ The name **Iterduca** comes from the Latin idea of guiding a journey: each conne
 - Proxy group summaries show visible, tested, and reachable node counts
 - Latency history shows min/average/max statistics while ignoring timeout samples
 - Creating a validated release/vX.Y.Z branch automatically publishes the matching Git tag and GitHub Release
+- Connections summary shows visible/total connection count plus aggregate upload/download
+- Close visible closes only the currently filtered connection set using stable connection IDs
+- Close visible and Close all require explicit confirmation before destructive actions
+- Sidebar navigation is grouped into Core, Inspect, System, and App sections
+- Refined dark visual system for cards, tables, inputs, buttons, scrollbars, and selection states
+- Settings is reorganized into focused Mihomo Core, Network, Automation, and Window cards
+- Real Windows PyQt6 screenshots are captured automatically with deterministic non-sensitive demo data
+- Screenshot workflow writes refreshed PNGs back to docs/screenshots/ and README embeds them directly
 - Real-time upload/download traffic through the Controller WebSocket
 - Mihomo stdout log viewer
 - Windows WinINet system proxy enable/restore

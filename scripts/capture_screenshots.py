@@ -1,4 +1,4 @@
-"""Capture real Iterduca Qt pages with deterministic, non-sensitive demo data."""
+"""Capture real Iterduca Qt pages with deterministic, non-sensitive demo data.\n\nThe capture always reflects the current application version and UI branch.\n"""
 from __future__ import annotations
 
 import os

@@ -4,7 +4,7 @@
 
 Iterduca 是一款 Windows 优先的桌面代理与网络路由客户端，使用 Python + PyQt6 开发，以 Mihomo 作为外部路由核心。项目将桌面界面、配置管理、运行时配置、系统网络集成和核心进程生命周期明确分层，而不是把所有逻辑直接堆在 UI 事件中。
 
-> 当前版本：**v1.7.0**
+> 当前版本：**v1.8.0**
 
 [English README](README.md)
 
@@ -34,7 +34,7 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 
 **Iterduca** 的命名取自“引导旅程”的拉丁语意象：让每一次连接沿合适的路径抵达目标。
 
-## v1.7.0 已实现
+## v1.8.0 已实现
 
 - PyQt6 桌面客户端与深色界面
 - YAML 配置导入与本地管理
@@ -125,6 +125,14 @@ Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实
 - 代理组摘要显示可见、已测速和可达节点数量
 - 延迟历史显示 min / avg / max 统计，并自动忽略 timeout 样本
 - 创建已验证的 release/vX.Y.Z 分支后自动生成对应 Git Tag 与 GitHub Release
+- Connections 显示当前可见/总连接数以及筛选结果的总上传、总下载
+- Close visible 仅按稳定 Connection ID 关闭当前筛选后可见连接
+- Close visible 与 Close all 执行破坏性操作前必须再次确认
+- 侧边栏按 Core、Inspect、System、App 四个区域重新分组
+- 统一优化深色主题中的卡片、表格、输入框、按钮、滚动条与选中状态
+- Settings 重构为 Mihomo Core、Network、Automation、Window 四个独立配置卡片
+- Windows Runner 自动启动真实 PyQt6 程序并用固定非敏感演示数据生成界面截图
+- 截图工作流自动将 PNG 写回 docs/screenshots/，README 可直接展示真实软件界面
 - 基于 Controller WebSocket 的实时上传/下载速率
 - Mihomo 标准输出日志查看
 - Windows WinINet 系统代理开启与恢复
