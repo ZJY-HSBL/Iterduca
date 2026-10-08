@@ -100,6 +100,11 @@ QLabel#Metric {
     font-weight: 700;
 }
 QLabel#Muted { color: #7f8898; }
+QLabel#SectionTitle {
+    color: #eef1f6;
+    font-size: 15px;
+    font-weight: 700;
+}
 
 QLineEdit, QComboBox, QListWidget, QPlainTextEdit, QSpinBox {
     background: #0f1319;
