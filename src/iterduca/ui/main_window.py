@@ -145,8 +145,8 @@ class MainWindow(QMainWindow):
             proxy_recovery_message = f"[system-proxy] Recovery check failed: {exc}"
 
         self.setWindowTitle("Iterduca")
-        self.resize(1080, 700)
-        self.setMinimumSize(900, 580)
+        self.resize(1220, 780)
+        self.setMinimumSize(1024, 640)
         self._build_ui()
         self.overview.set_traffic_history(self.history_service.traffic())
         self._restore_recent_logs()
@@ -172,12 +172,17 @@ class MainWindow(QMainWindow):
 
         sidebar = QWidget()
         sidebar.setObjectName("Sidebar")
-        sidebar.setFixedWidth(190)
+        sidebar.setFixedWidth(208)
         side = QVBoxLayout(sidebar)
-        side.setContentsMargins(14, 16, 14, 16)
-        brand = QLabel("ITERDUCA")
+        side.setContentsMargins(14, 18, 14, 14)
+        side.setSpacing(2)
+
+        brand = QLabel("Iterduca")
         brand.setObjectName("Brand")
         side.addWidget(brand)
+        brand_sub = QLabel("NETWORK ROUTING")
+        brand_sub.setObjectName("BrandSub")
+        side.addWidget(brand_sub)
 
         self.stack = QStackedWidget()
         self.overview = OverviewPage()
@@ -192,31 +197,63 @@ class MainWindow(QMainWindow):
         self.tools = ToolsPage()
         self.logs = LogsPage()
         self.settings_page = SettingsPage()
-        pages = [
-            ("Overview", self.overview),
-            ("Proxies", self.proxies),
-            ("Proxy Providers", self.proxy_providers),
-            ("Profiles", self.profiles),
-            ("Connections", self.connections),
-            ("Rules", self.rules),
-            ("Rule Providers", self.rule_providers),
-            ("Overrides", self.overrides),
-            ("TUN", self.tun),
-            ("Tools", self.tools),
-            ("Logs", self.logs),
-            ("Settings", self.settings_page),
+
+        navigation = [
+            (
+                "CORE",
+                [
+                    ("Overview", self.overview),
+                    ("Proxies", self.proxies),
+                    ("Proxy Providers", self.proxy_providers),
+                    ("Profiles", self.profiles),
+                ],
+            ),
+            (
+                "INSPECT",
+                [
+                    ("Connections", self.connections),
+                    ("Rules", self.rules),
+                    ("Rule Providers", self.rule_providers),
+                ],
+            ),
+            (
+                "SYSTEM",
+                [
+                    ("Overrides", self.overrides),
+                    ("TUN", self.tun),
+                    ("Tools", self.tools),
+                ],
+            ),
+            (
+                "APP",
+                [
+                    ("Logs", self.logs),
+                    ("Settings", self.settings_page),
+                ],
+            ),
         ]
+
         self.nav_buttons: list[QPushButton] = []
-        for index, (name, page) in enumerate(pages):
-            self.stack.addWidget(page)
-            button = QPushButton(name)
-            button.setCheckable(True)
-            button.clicked.connect(lambda checked=False, i=index: self._navigate(i))
-            self.nav_buttons.append(button)
-            side.addWidget(button)
+        page_index = 0
+        for section_name, pages in navigation:
+            section = QLabel(section_name)
+            section.setObjectName("NavSection")
+            side.addWidget(section)
+            for name, page in pages:
+                self.stack.addWidget(page)
+                button = QPushButton(name)
+                button.setObjectName("NavButton")
+                button.setCheckable(True)
+                button.clicked.connect(
+                    lambda checked=False, i=page_index: self._navigate(i)
+                )
+                self.nav_buttons.append(button)
+                side.addWidget(button)
+                page_index += 1
+
         self.nav_buttons[0].setChecked(True)
         side.addStretch(1)
-        version = QLabel(f"v{APP_VERSION}")
+        version = QLabel(f"ITERDUCA  ·  v{APP_VERSION}")
         version.setObjectName("Muted")
         side.addWidget(version)
 
