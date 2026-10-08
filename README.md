@@ -1,3 +1,23 @@
+## Interface preview
+
+The screenshots below are captured from the real PyQt6 application on a Windows GitHub runner. They use deterministic demo data only; no real subscription URLs, proxy credentials, traffic records, or connection metadata are included.
+
+### Overview
+
+![Iterduca Overview](docs/screenshots/overview.png)
+
+### Proxies
+
+![Iterduca Proxies](docs/screenshots/proxies.png)
+
+### Connections
+
+![Iterduca Connections](docs/screenshots/connections.png)
+
+### Settings
+
+![Iterduca Settings](docs/screenshots/settings.png)
+
 # Iterduca
 
 **Modern Network Routing Client**
