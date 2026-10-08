@@ -1,5 +1,6 @@
 name: Installer CI
 
+# Version and packaging changes intentionally trigger full installer validation.
 on:
   push:
     branches:
