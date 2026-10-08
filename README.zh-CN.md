@@ -8,6 +8,26 @@ Iterduca 是一款 Windows 优先的桌面代理与网络路由客户端，使�
 
 [English README](README.md)
 
+## 界面预览
+
+以下截图由 Windows GitHub Runner 直接启动真实 PyQt6 程序后生成，不是概念图。截图仅使用固定演示数据，不包含真实订阅 URL、节点凭据、流量记录或连接信息。
+
+### Overview
+
+![Iterduca Overview](docs/screenshots/overview.png)
+
+### Proxies
+
+![Iterduca Proxies](docs/screenshots/proxies.png)
+
+### Connections
+
+![Iterduca Connections](docs/screenshots/connections.png)
+
+### Settings
+
+![Iterduca Settings](docs/screenshots/settings.png)
+
 ## 项目定位
 
 Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实现，并通过明确的 Core Adapter 与代理核心交互。目前首个适配核心为 Mihomo，但 UI、配置模型与核心进程彼此解耦，为后续扩展保留清晰边界。
