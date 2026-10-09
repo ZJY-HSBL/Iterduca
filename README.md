@@ -42,7 +42,13 @@ The name **Iterduca** comes from the Latin idea of guiding a journey: each conne
 - Mihomo process start/stop lifecycle
 - Local Controller API with an automatically generated secret
 - Rule / Global / Direct mode switching
-- Proxy group discovery and node switching\n- Selected-node and full proxy-group latency testing\n- Live connection inspection with per-connection and close-all controls\n- Rule table with client-side filtering\n- Subscription URL import, in-place refresh, and bulk update\n- Runtime YAML override editor with nested deep-merge semantics\n- Automatic Connections refresh while the page is visible
+- Proxy group discovery and node switching
+- Selected-node and full proxy-group latency testing
+- Live connection inspection with per-connection and close-all controls
+- Rule table with client-side filtering
+- Subscription URL import, in-place refresh, and bulk update
+- Runtime YAML override editor with nested deep-merge semantics
+- Automatic Connections refresh while the page is visible
 - Windows TUN management page with elevation status and UAC relaunch
 - Managed TUN stacks: mips, system, gvisor, and mixed
 - TUN auto-route, outbound-interface detection, DNS hijack, and strict-route controls
