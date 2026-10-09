@@ -1,3 +1,13 @@
+# Iterduca
+
+**Modern Network Routing Client**
+
+Iterduca is a Windows-first desktop proxy and network routing client built with Python and PyQt6. It uses Mihomo as an external routing core and keeps the desktop application, profile management, runtime configuration, system integration, and core process lifecycle clearly separated.
+
+> Current version: **v1.8.0**
+
+[中文说明](README.zh-CN.md)
+
 ## Interface preview
 
 The screenshots below are captured from the real PyQt6 application on a Windows GitHub runner. They use deterministic demo data only; no real subscription URLs, proxy credentials, traffic records, or connection metadata are included.
@@ -17,16 +27,6 @@ The screenshots below are captured from the real PyQt6 application on a Windows 
 ### Settings
 
 ![Iterduca Settings](docs/screenshots/settings.png)
-
-# Iterduca
-
-**Modern Network Routing Client**
-
-Iterduca is a Windows-first desktop proxy and network routing client built with Python and PyQt6. It uses Mihomo as an external routing core and keeps the desktop application, profile management, runtime configuration, system integration, and core process lifecycle clearly separated.
-
-> Current version: **v1.8.0**
-
-[中文说明](README.zh-CN.md)
 
 ## Why Iterduca
 
