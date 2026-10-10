@@ -168,7 +168,7 @@ def test_malformed_persisted_subscription_usage_falls_back_to_zero(tmp_path: Pat
 
 class OversizedStreamingResponse(FakeResponse):
     def __init__(self) -> None:
-        super().__init__("proxies: []\\n")
+        super().__init__("proxies: []\n")
         self.read_chunks = 0
 
     def iter_bytes(self, chunk_size: int = 65536):
@@ -201,7 +201,7 @@ def test_oversized_content_length_rejected_before_reading(
             yield b""  # pragma: no cover
 
     response = DeclaredOversizedResponse(
-        "proxies: []\\n", {"content-length": str(8 * 1024 * 1024 + 1)}
+        "proxies: []\n", {"content-length": str(8 * 1024 * 1024 + 1)}
     )
     monkeypatch.setattr(httpx, "stream", lambda *args, **kwargs: response)
     service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
@@ -212,7 +212,12 @@ def test_oversized_content_length_rejected_before_reading(
 def test_failed_streamed_update_preserves_previous_profile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    responses = iter([FakeResponse("proxies:\\n  - {name: A, type: direct}\\n"), OversizedStreamingResponse()])
+    responses = iter(
+        [
+            FakeResponse("proxies:\n  - {name: A, type: direct}\n"),
+            OversizedStreamingResponse(),
+        ]
+    )
     monkeypatch.setattr(httpx, "stream", lambda *args, **kwargs: next(responses))
     service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
     info = service.add("https://example.com/stable.yaml")
