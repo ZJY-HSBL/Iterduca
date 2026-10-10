@@ -14,6 +14,16 @@ class FakeResponse:
     def raise_for_status(self) -> None:
         return None
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args) -> None:
+        return None
+
+    def iter_bytes(self, chunk_size: int = 65536):
+        for offset in range(0, len(self.content), chunk_size):
+            yield self.content[offset : offset + chunk_size]
+
 
 def test_add_and_update_subscription(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     payloads = [
@@ -21,10 +31,10 @@ def test_add_and_update_subscription(tmp_path: Path, monkeypatch: pytest.MonkeyP
         "proxies:\n  - {name: B, type: direct}\n",
     ]
 
-    def fake_get(*args, **kwargs):
+    def fake_stream(*args, **kwargs):
         return FakeResponse(payloads.pop(0))
 
-    monkeypatch.setattr(httpx, "get", fake_get)
+    monkeypatch.setattr(httpx, "stream", fake_stream)
     service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
 
     added = service.add("https://example.com/subscription.yaml")
@@ -54,10 +64,10 @@ def test_update_all_refreshes_every_registered_subscription(
         ]
     )
 
-    def fake_get(*args, **kwargs):
+    def fake_stream(*args, **kwargs):
         return FakeResponse(next(payloads))
 
-    monkeypatch.setattr(httpx, "get", fake_get)
+    monkeypatch.setattr(httpx, "stream", fake_stream)
     service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
     first = service.add("https://example.com/a.yaml")
     second = service.add("https://example.com/b.yaml")
@@ -77,7 +87,7 @@ def test_forget_subscription_removes_only_metadata(
 ) -> None:
     monkeypatch.setattr(
         httpx,
-        "get",
+        "stream",
         lambda *args, **kwargs: FakeResponse("proxies:\n  - {name: A, type: direct}\n"),
     )
     service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
@@ -95,7 +105,7 @@ def test_subscription_userinfo_is_parsed_and_persisted(
 ) -> None:
     monkeypatch.setattr(
         httpx,
-        "get",
+        "stream",
         lambda *args, **kwargs: FakeResponse(
             "proxies:\n  - {name: A, type: direct}\n",
             {
@@ -154,3 +164,67 @@ def test_malformed_persisted_subscription_usage_falls_back_to_zero(tmp_path: Pat
     assert info.download_bytes == 0
     assert info.total_bytes == 0
     assert info.expire_at == 0
+
+
+class OversizedStreamingResponse(FakeResponse):
+    def __init__(self) -> None:
+        super().__init__("proxies: []\n")
+        self.read_chunks = 0
+
+    def iter_bytes(self, chunk_size: int = 65536):
+        for _ in range(200):
+            self.read_chunks += 1
+            yield b"x" * chunk_size
+
+
+def test_subscription_stream_stops_as_soon_as_size_limit_is_exceeded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    response = OversizedStreamingResponse()
+    monkeypatch.setattr(httpx, "stream", lambda *args, **kwargs: response)
+    service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
+
+    with pytest.raises(ValueError, match="larger than 8 MiB"):
+        service.add("https://example.com/oversized.yaml")
+
+    assert response.read_chunks == 129  # 128 chunks are exactly 8 MiB
+    assert list((tmp_path / "profiles").iterdir()) == []
+    assert service.list() == []
+
+
+def test_oversized_content_length_rejected_before_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class DeclaredOversizedResponse(FakeResponse):
+        def iter_bytes(self, chunk_size: int = 65536):
+            raise AssertionError("Body should not be read when Content-Length exceeds limit")
+            yield b""  # pragma: no cover
+
+    response = DeclaredOversizedResponse(
+        "proxies: []\n", {"content-length": str(8 * 1024 * 1024 + 1)}
+    )
+    monkeypatch.setattr(httpx, "stream", lambda *args, **kwargs: response)
+    service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
+    with pytest.raises(ValueError, match="larger than 8 MiB"):
+        service.add("https://example.com/oversized.yaml")
+
+
+def test_failed_streamed_update_preserves_previous_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    responses = iter(
+        [
+            FakeResponse("proxies:\n  - {name: A, type: direct}\n"),
+            OversizedStreamingResponse(),
+        ]
+    )
+    monkeypatch.setattr(httpx, "stream", lambda *args, **kwargs: next(responses))
+    service = SubscriptionService(tmp_path / "profiles", tmp_path / "subscriptions.json")
+    info = service.add("https://example.com/stable.yaml")
+    original = (tmp_path / "profiles" / info.profile_name).read_text(encoding="utf-8")
+
+    with pytest.raises(ValueError, match="larger than 8 MiB"):
+        service.update(info.profile_name)
+
+    assert (tmp_path / "profiles" / info.profile_name).read_text(encoding="utf-8") == original
+    assert service.list()[0] == info

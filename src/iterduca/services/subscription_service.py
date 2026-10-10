@@ -111,19 +111,33 @@ class SubscriptionService:
         return info
 
     def _download(self, url: str) -> tuple[str, dict[str, int]]:
-        response = httpx.get(
+        limit = 8 * 1024 * 1024
+        with httpx.stream(
+            "GET",
             url,
             follow_redirects=True,
             timeout=15.0,
             headers={"User-Agent": f"Iterduca/{APP_VERSION}"},
-        )
-        response.raise_for_status()
-        content = response.content
-        if len(content) > 8 * 1024 * 1024:
-            raise ValueError("Subscription is larger than 8 MiB")
-        text = content.decode("utf-8-sig")
+        ) as response:
+            response.raise_for_status()
+            try:
+                declared_size = int(response.headers.get("content-length", "0"))
+            except ValueError:
+                declared_size = 0
+            if declared_size > limit:
+                raise ValueError("Subscription is larger than 8 MiB")
+
+            chunks: list[bytes] = []
+            size = 0
+            for chunk in response.iter_bytes(chunk_size=64 * 1024):
+                size += len(chunk)
+                if size > limit:
+                    raise ValueError("Subscription is larger than 8 MiB")
+                chunks.append(chunk)
+            usage = self._parse_userinfo(response.headers.get("subscription-userinfo", ""))
+
+        text = b"".join(chunks).decode("utf-8-sig")
         self._validate_profile(text)
-        usage = self._parse_userinfo(response.headers.get("subscription-userinfo", ""))
         return text, usage
 
     def _write_profile(self, profile_name: str, text: str) -> None:
