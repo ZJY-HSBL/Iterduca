@@ -196,6 +196,31 @@ QScrollBar::handle:horizontal {
 }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 
+
+#SidebarScroll, #SidebarNavContent {
+    background: #11141a;
+    border: 0;
+}
+#QuickSearchButton {
+    color: #aab5c9;
+    background: #191e27;
+    border: 1px solid #2d3542;
+    text-align: left;
+    padding: 9px 10px;
+    margin: 2px 0 8px 0;
+}
+#QuickSearchButton:hover {
+    color: #eef2ff;
+    border-color: #617394;
+    background: #202838;
+}
+#QuickResults {
+    background: #10141b;
+    border: 1px solid #2a3443;
+    padding: 5px;
+}
+#QuickResults::item { padding: 12px 11px; }
+
 QToolTip {
     color: #edf0f6;
     background: #181d25;

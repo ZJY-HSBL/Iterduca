@@ -6,17 +6,20 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import httpx
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction
+from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QAction, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
+    QDialog,
     QFileDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
     QStyle,
     QSystemTrayIcon,
@@ -37,6 +40,7 @@ from iterduca.services.diagnostics_service import DiagnosticsService
 from iterduca.services.history_service import HistoryService
 from iterduca.services.log_service import LogService
 from iterduca.services.network_service import find_port_conflicts
+from iterduca.services.navigation_service import NAVIGATION_SECTIONS, navigation_items
 from iterduca.services.override_service import OverrideService
 from iterduca.services.profile_service import ProfileService
 from iterduca.services.restart_policy import CoreRestartPolicy
@@ -58,6 +62,7 @@ from iterduca.ui.pages.rules import RulesPage
 from iterduca.ui.pages.settings import SettingsPage
 from iterduca.ui.pages.tools import ToolsPage
 from iterduca.ui.pages.tun import TunPage
+from iterduca.ui.widgets.quick_switcher import QuickSwitcher
 
 
 class UiBridge(QObject):
@@ -198,49 +203,47 @@ class MainWindow(QMainWindow):
         self.logs = LogsPage()
         self.settings_page = SettingsPage()
 
-        navigation = [
-            (
-                "CORE",
-                [
-                    ("Overview", self.overview),
-                    ("Proxies", self.proxies),
-                    ("Proxy Providers", self.proxy_providers),
-                    ("Profiles", self.profiles),
-                ],
-            ),
-            (
-                "INSPECT",
-                [
-                    ("Connections", self.connections),
-                    ("Rules", self.rules),
-                    ("Rule Providers", self.rule_providers),
-                ],
-            ),
-            (
-                "SYSTEM",
-                [
-                    ("Overrides", self.overrides),
-                    ("TUN", self.tun),
-                    ("Tools", self.tools),
-                ],
-            ),
-            (
-                "APP",
-                [
-                    ("Logs", self.logs),
-                    ("Settings", self.settings_page),
-                ],
-            ),
-        ]
+        page_by_name = {
+            "Overview": self.overview,
+            "Proxies": self.proxies,
+            "Proxy Providers": self.proxy_providers,
+            "Profiles": self.profiles,
+            "Connections": self.connections,
+            "Rules": self.rules,
+            "Rule Providers": self.rule_providers,
+            "Overrides": self.overrides,
+            "TUN": self.tun,
+            "Tools": self.tools,
+            "Logs": self.logs,
+            "Settings": self.settings_page,
+        }
+        self.navigation_items = navigation_items()
+
+        quick_open = QPushButton("Search pages    Ctrl+K")
+        quick_open.setObjectName("QuickSearchButton")
+        quick_open.clicked.connect(self._show_quick_switcher)
+        side.addWidget(quick_open)
+
+        nav_scroll = QScrollArea()
+        nav_scroll.setObjectName("SidebarScroll")
+        nav_scroll.setWidgetResizable(True)
+        nav_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        nav_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        nav_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        nav_content = QWidget()
+        nav_content.setObjectName("SidebarNavContent")
+        nav_layout = QVBoxLayout(nav_content)
+        nav_layout.setContentsMargins(0, 4, 3, 4)
+        nav_layout.setSpacing(2)
 
         self.nav_buttons: list[QPushButton] = []
         page_index = 0
-        for section_name, pages in navigation:
+        for section_name, page_names in NAVIGATION_SECTIONS:
             section = QLabel(section_name)
             section.setObjectName("NavSection")
-            side.addWidget(section)
-            for name, page in pages:
-                self.stack.addWidget(page)
+            nav_layout.addWidget(section)
+            for name in page_names:
+                self.stack.addWidget(page_by_name[name])
                 button = QPushButton(name)
                 button.setObjectName("NavButton")
                 button.setCheckable(True)
@@ -248,14 +251,20 @@ class MainWindow(QMainWindow):
                     lambda checked=False, i=page_index: self._navigate(i)
                 )
                 self.nav_buttons.append(button)
-                side.addWidget(button)
+                nav_layout.addWidget(button)
                 page_index += 1
 
+        nav_layout.addStretch(1)
+        nav_scroll.setWidget(nav_content)
+        side.addWidget(nav_scroll, 1)
+
         self.nav_buttons[0].setChecked(True)
-        side.addStretch(1)
         version = QLabel(f"ITERDUCA  ·  v{APP_VERSION}")
         version.setObjectName("Muted")
         side.addWidget(version)
+
+        self.quick_switch_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
+        self.quick_switch_shortcut.activated.connect(self._show_quick_switcher)
 
         outer.addWidget(sidebar)
         outer.addWidget(self.stack, 1)
@@ -712,6 +721,14 @@ class MainWindow(QMainWindow):
         self.stop_core()
         self.tray.hide()
         QApplication.quit()
+
+    def _show_quick_switcher(self) -> None:
+        dialog = QuickSwitcher(self.navigation_items, self)
+        if (
+            dialog.exec() == QDialog.DialogCode.Accepted
+            and dialog.selected_index is not None
+        ):
+            self._navigate(dialog.selected_index)
 
     def _navigate(self, index: int) -> None:
         self.stack.setCurrentIndex(index)
