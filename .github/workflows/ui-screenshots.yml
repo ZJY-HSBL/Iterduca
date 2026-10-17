@@ -6,6 +6,8 @@ on:
       - "develop/**"
     paths:
       - "src/iterduca/ui/**"
+      - "src/iterduca/constants.py"
+      - "pyproject.toml"
       - "scripts/capture_screenshots.py"
       - ".github/workflows/ui-screenshots.yml"
   workflow_dispatch:
