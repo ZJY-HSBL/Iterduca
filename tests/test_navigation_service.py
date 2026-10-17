@@ -19,7 +19,7 @@ def test_navigation_search_is_case_insensitive_and_whitespace_tolerant():
     assert [item.name for item in search_navigation(items, "  PROXY  ")] == [
         "Proxy Providers",
     ]
-    assert [item.name for item in search_navigation(items, "inspect rules")] == [
+    assert [item.name for item in search_navigation(items, "inspect rule")] == [
         "Rules", "Rule Providers",
     ]
     assert [item.name for item in search_navigation(items, "core prov")] == [
