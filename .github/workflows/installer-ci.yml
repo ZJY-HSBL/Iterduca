@@ -8,6 +8,7 @@ on:
       - "develop/**"
     paths:
       - "pyproject.toml"
+      - "src/iterduca/ui/**"
       - "scripts/installer.iss"
       - "scripts/write_version_info.py"
       - ".github/workflows/release.yml"
@@ -16,6 +17,7 @@ on:
     branches: [main]
     paths:
       - "pyproject.toml"
+      - "src/iterduca/ui/**"
       - "scripts/installer.iss"
       - "scripts/write_version_info.py"
       - ".github/workflows/release.yml"
