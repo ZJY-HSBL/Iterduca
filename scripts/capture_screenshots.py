@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QApplication
 from iterduca.core.api import ProxyGroup
 from iterduca.paths import AppPaths
 from iterduca.ui.main_window import MainWindow
+from iterduca.ui.widgets.quick_switcher import QuickSwitcher
 from iterduca.ui.theme import APP_STYLESHEET
 
 
@@ -140,6 +141,16 @@ def main() -> None:
             if not window.grab().save(str(filename), "PNG"):
                 raise RuntimeError(f"Could not save screenshot: {filename}")
             print(f"Captured {filename}")
+
+        switcher = QuickSwitcher(window.navigation_items, window)
+        switcher.search.setText("pro")
+        switcher.show()
+        app.processEvents()
+        quickshot = output / "quick-switcher.png"
+        if not switcher.grab().save(str(quickshot), "PNG"):
+            raise RuntimeError(f"Could not save screenshot: {quickshot}")
+        print(f"Captured {quickshot}")
+        switcher.close()
 
         window._force_quit = True
         window.close()
