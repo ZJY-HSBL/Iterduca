@@ -4,7 +4,7 @@
 
 Iterduca 是一款 Windows 优先的桌面代理与网络路由客户端，使用 Python + PyQt6 开发，以 Mihomo 作为外部路由核心。项目将桌面界面、配置管理、运行时配置、系统网络集成和核心进程生命周期明确分层，而不是把所有逻辑直接堆在 UI 事件中。
 
-> 当前版本：**v1.8.0**
+> 当前版本：**v1.9.0**
 
 [English README](README.md)
 
@@ -28,13 +28,25 @@ Iterduca 是一款 Windows 优先的桌面代理与网络路由客户端，使�
 
 ![Iterduca Settings](docs/screenshots/settings.png)
 
+### 快速切换（Ctrl+K）
+
+![Iterduca Quick Switcher](docs/screenshots/quick-switcher.png)
+
+按 **Ctrl+K** 或点击侧边栏搜索按钮，可以按照页面名称或分组查找并跳转。较小窗口下，左侧导航支持滚动。
+
 ## 项目定位
 
 Iterduca 不是其他桌面客户端的换皮或 Fork。桌面应用层独立实现，并通过明确的 Core Adapter 与代理核心交互。目前首个适配核心为 Mihomo，但 UI、配置模型与核心进程彼此解耦，为后续扩展保留清晰边界。
 
 **Iterduca** 的命名取自“引导旅程”的拉丁语意象：让每一次连接沿合适的路径抵达目标。
 
-## v1.8.0 已实现
+## v1.9.0 已实现
+
+- Ctrl+K 页面快速切换，支持按名称或分组进行不区分大小写的搜索
+- 分组侧边栏在小尺寸窗口下可滚动，避免菜单被遮挡
+- 快速切换弹窗支持回车打开、Esc 关闭
+- 五张 Windows 原生 PyQt6 界面截图（使用无敏感信息的演示数据）
+- 订阅下载流式大小限制与公开安全策略
 
 - PyQt6 桌面客户端与深色界面
 - YAML 配置导入与本地管理

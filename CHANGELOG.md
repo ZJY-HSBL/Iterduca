@@ -4,6 +4,26 @@ All notable changes to Iterduca are documented here.
 
 The project follows Semantic Versioning.
 
+## [1.9.0] - 2026-10-17
+
+### Added
+
+- Ctrl+K quick navigation dialog with case-insensitive matching over page names and sidebar groups.
+- Enter / Esc keyboard interaction and a dedicated sidebar search control.
+- Scrollable grouped navigation for compact desktop window sizes.
+- Regression tests covering stable page ordering, search token matching, and empty results.
+- Automated native-Windows screenshot of the quick navigation dialog.
+
+### Fixed
+
+- Subscription downloads now enforce their configured maximum size while streaming, rather than only after buffering the response.
+- Added a responsible vulnerability reporting policy.
+
+### Changed
+
+- Windows setup, executable, and metadata version aligned to v1.9.0.
+- English and Chinese READMEs now include a Quick navigation interface preview.
+
 ## [1.8.0] - 2026-10-08
 
 ### Added
