@@ -221,6 +221,19 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 }
 #QuickResults::item { padding: 12px 11px; }
 
+/* Keep labels visually integrated with card and sidebar surfaces. */
+QLabel { background: transparent; }
+QPushButton#PrimaryButton:disabled {
+    color: #737d91;
+    background: #252b38;
+    border-color: #343d4d;
+}
+QPushButton#DangerButton:disabled {
+    color: #74626b;
+    background: #21191f;
+    border-color: #33252b;
+}
+
 QToolTip {
     color: #edf0f6;
     background: #181d25;
